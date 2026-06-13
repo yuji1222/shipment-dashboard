@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>入出荷 DASHBOARD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0A0B1A;
+      --bg2:       #10112A;
+      --card:      rgba(255,255,255,0.04);
+      --border:    rgba(255,255,255,0.07);
+      --border-hi: rgba(124,111,255,0.35);
+      --accent:    #7C6FFF;
+      --accent2:   #00D4FF;
+      --text:      #E8E8F0;
+      --dim:       #6B6B8A;
+      --muted:     #3A3A55;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(124,111,255,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 85%, rgba(0,212,255,0.05) 0%, transparent 70%);
+      animation: bg-breathe 10s ease-in-out infinite alternate;
+      pointer-events: none; z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(124,111,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,111,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none; z-index: 0;
+    }
+    @keyframes bg-breathe {
+      from { opacity: 1; }
+      to   { opacity: 0.55; }
+    }
+
+    /* ==================== LOADING ==================== */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+    }
+    #loading-screen.hidden { display: none; }
+
+    .up-wrap { text-align: center; position: relative; z-index: 1; }
+
+    .up-title {
+      font-size: clamp(30px,5vw,46px);
+      font-weight: 900; letter-spacing: -1px; line-height: 1.1;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 8px;
+    }
+    .up-sub {
+      font-size: 12px; color: var(--dim);
+      letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 44px;
+    }
+
+    .up-error {
+      margin-top: 14px; padding: 11px 18px;
+      background: rgba(255,107,107,0.08);
+      border: 1px solid rgba(255,107,107,0.25);
+      border-radius: 10px; color: #FF6B6B; font-size: 13px;
+      display: none;
+    }
+    .up-error.show { display: block; }
+
+    .spinner {
+      display: none; width: 36px; height: 36px;
+      border: 2.5px solid rgba(124,111,255,0.2);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 16px auto 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==================== DASHBOARD ==================== */
+    #dashboard { display: none; min-height: 100vh; position: relative; z-index: 1; }
+    #dashboard.show { display: block; }
+
+    .hdr {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      background: rgba(10,11,26,0.78);
+      border-bottom: 1px solid var(--border);
+      height: 62px; padding: 0 clamp(16px,4vw,48px);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hdr-left { display: flex; align-items: center; gap: 14px; }
+    .hdr-logo {
+      font-size: 15px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hdr-period {
+      font-size: 12px; color: var(--dim);
+      padding: 3px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 100px;
+    }
+
+    /* ==================== DATE SELECTOR ==================== */
+    .date-sel-wrap {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .date-sel {
+      appearance: none; -webkit-appearance: none;
+      background: transparent;
+      border: 1px solid var(--border-hi); border-radius: 100px;
+      color: var(--accent);
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12px;
+      padding: 7px 36px 7px 16px;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .date-sel:hover {
+      background: rgba(124,111,255,0.1);
+      box-shadow: 0 0 20px rgba(124,111,255,0.2);
+    }
+    .date-sel option { background: #10112A; color: var(--text); }
+    .date-sel-icon {
+      position: absolute; right: 13px;
+      pointer-events: none;
+      width: 11px; height: 11px;
+      stroke: var(--accent);
+    }
+
+    .content {
+      max-width: 1400px; margin: 0 auto;
+      padding: clamp(28px,4vw,56px) clamp(16px,4vw,48px);
+      display: flex; flex-direction: column; gap: 64px;
+    }
+
+    .sec-title {
+      font-size: clamp(15px,2vw,19px); font-weight: 700;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .sec-title::before {
+      content: '';
+      display: block; width: 3px; height: 20px; border-radius: 2px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .card:hover {
+      border-color: rgba(124,111,255,0.18);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+
+    /* ==================== RADAR ==================== */
+    .radar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+    .radar-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 22px;
+      display: flex; flex-direction: column; align-items: center;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .radar-card::after {
+      content: '';
+      position: absolute; inset: 0; border-radius: 16px;
+      background: radial-gradient(circle at 50% 30%, var(--rc, rgba(124,111,255,0.08)) 0%, transparent 65%);
+      opacity: 0; transition: opacity 0.4s; pointer-events: none;
+    }
+    .radar-card:hover::after { opacity: 1; }
+    .radar-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    }
+    .radar-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .radar-canvas-wrap { width: 100%; height: 210px; position: relative; margin: 6px 0; overflow: hidden; flex-shrink: 0; }
+    .radar-canvas-wrap canvas { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+
+    .radar-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
+    .rs {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 10px; text-align: center;
+    }
+    .rs-label { font-size: 10px; color: var(--dim); letter-spacing: 0.3px; margin-bottom: 3px; }
+    .rs-val   { font-size: 19px; font-weight: 800; line-height: 1; }
+    .rs-unit  { font-size: 10px; color: var(--dim); margin-left: 1px; }
+
+    /* ==================== LINE ==================== */
+    .sum-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+    .sum-card {
+      flex: 1; min-width: 130px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
+      transition: border-color 0.3s;
+    }
+    .sum-card:hover { border-color: rgba(124,111,255,0.2); }
+    .sum-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 7px; }
+    .sum-val {
+      font-size: 26px; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .sum-sub { font-size: 11px; color: var(--dim); margin-top: 5px; }
+
+    .chart-wrap { width: 100%; height: 320px; position: relative; }
+
+    /* ==================== CALENDAR ==================== */
+    .cal-hdr { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-bottom: 5px; }
+    .cal-hdr-d {
+      text-align: center; font-size: 10px; font-weight: 700;
+      color: var(--dim); padding: 6px 0; letter-spacing: 1px;
+    }
+    .cal-hdr-d.sun { color: #FF6B6B; }
+    .cal-hdr-d.sat { color: var(--accent2); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; grid-auto-rows: clamp(68px, 9vw, 96px); }
+    .cal-cell {
+      border-radius: 10px; padding: 8px 8px 6px;
+      overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .cal-cell.empty   { background: transparent; pointer-events: none; }
+    .cal-cell.no-data { background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); }
+    .cal-cell.has-data:hover { transform: scale(1.07); z-index: 2; box-shadow: 0 10px 32px rgba(0,0,0,0.45); }
+    .cal-d { font-size: 10px; font-weight: 700; opacity: 0.75; }
+    .cal-n { font-size: 17px; font-weight: 900; line-height: 1; }
+    .cal-bar { height: 3px; border-radius: 2px; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(124,111,255,0.25); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(124,111,255,0.45); }
+
+    /* ==================== RESPONSIVE ==================== */
+    @media (max-width: 640px) {
+      .radar-grid { grid-template-columns: 1fr 1fr; }
+      .sum-row { flex-direction: column; }
+      .cal-grid { grid-auto-rows: 52px; }
+      .cal-cell { padding: 5px 5px 4px; }
+      .cal-n { font-size: 13px; } .cal-d { font-size: 9px; } .cal-bar { display: none; }
+    }
+    @media (max-width: 400px) {
+      .radar-grid { grid-template-columns: 1fr; }
+      .cal-grid { grid-auto-rows: 42px; }
+      .cal-cell { border-radius: 6px; } .cal-n { font-size: 11px; }
+    }
+
+    /* ==================== LOGO ==================== */
+    .up-logo-wrap { margin-bottom: 24px; }
+    .up-logo-wrap svg { width: min(210px, 70vw); height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 0 20px rgba(230,0,18,0.45)); }
+    .hdr-logo-mark { flex-shrink: 0; line-height: 0; }
+
+    /* ==================== RANKING ==================== */
+    .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .rank-label { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
+    .rank-bar-wrap { position: relative; }
+    @media (max-width: 768px) { .rank-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- ==================== LOADING SCREEN ==================== -->
+<div id="loading-screen">
+  <div class="up-wrap">
+    <div class="up-logo-wrap">
+      <svg viewBox="0 0 279 59.6" xmlns="http://www.w3.org/2000/svg" aria-label="会社ロゴ">
+        <polygon fill="#E60012" points="7.8,38 31.9,38 44,58.9 19.8,58.9"/>
+        <polygon fill="#E60012" points="19.8,0.5 3,29.7 36.7,29.7 53.5,0.5"/>
+        <polygon fill="#B6001F" points="36.7,29.7 53.5,0.5 70.4,29.7 53.5,58.9"/>
+        <polygon fill="#E8E8F0" points="82.8,10.8 82.8,20.9 97,20.9 97,48.6 110.4,48.6 110.4,20.9 124.6,20.9 124.6,10.8"/>
+        <path fill="#E8E8F0" d="M151.4,9.7c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c7.2,0,25-0.6,25-20.1C176.3,10.2,157.4,9.7,151.4,9.7z M151.4,39.4c-2.4,0-10.6-0.1-10.6-9.6s7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5S153.8,39.4,151.4,39.4z"/>
+        <path fill="#E8E8F0" d="M219.5,23.5c0-12.5-12.5-12.7-16.1-12.7c-1.3,0-22.5,0-22.5,0v37.8h13.4V35.5h1.1l11.2,13.2h16.6l-11.4-13.5C214.9,34.4,219.5,31.8,219.5,23.5z M200.3,19.6c1.9,0,6,0.4,6,4.5s-3.3,4.5-5.9,4.5c-2.6,0-5.7,0-5.9,0v-9C194.7,19.6,198.5,19.6,200.3,19.6z"/>
+        <path fill="#E8E8F0" d="M273.2,29.8c0-19.5-18.9-20-25-20c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c2.2,0,5.4-0.1,8.8-0.7l1.8,2h14.3l-6-6.5C270.7,41.7,273.2,37,273.2,29.8z M237.6,29.8c0-9.5,7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5c0,2-0.4,3.6-1,4.9l-2.5-2.8h-14.1l6.9,7.4C245.5,39.3,237.6,39,237.6,29.8z"/>
+      </svg>
+    </div>
+    <div class="up-title">SHIPMENT<br>DASHBOARD</div>
+    <div class="up-sub">入出荷データ可視化システム</div>
+    <div class="spinner" id="spinner" style="display:block"></div>
+    <div class="up-error" id="up-error"></div>
+  </div>
+</div>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div id="dashboard">
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-logo-mark">
+        <svg viewBox="0 0 74 60" height="28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <polygon fill="#E60012" points="7.8,38 31.9,38 44,58.9 19.8,58.9"/>
+          <polygon fill="#E60012" points="19.8,0.5 3,29.7 36.7,29.7 53.5,0.5"/>
+          <polygon fill="#B6001F" points="36.7,29.7 53.5,0.5 70.4,29.7 53.5,58.9"/>
+        </svg>
+      </div>
+      <div class="hdr-logo">SHIPMENT<br>DASHBOARD</div>
+      <div class="hdr-period" id="hdr-period">—</div>
+    </div>
+    <div class="date-sel-wrap">
+      <select id="date-selector" class="date-sel"></select>
+      <svg class="date-sel-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+  </header>
+
+  <div class="content">
+    <section id="sec-radar">
+      <div class="sec-title">担当者別 能力レーダー</div>
+      <div class="radar-grid" id="radar-grid"></div>
+    </section>
+
+    <section id="sec-rank">
+      <div class="sec-title">担当者別 ランキング</div>
+      <div class="rank-grid">
+        <div class="card">
+          <div class="rank-label">出荷行数</div>
+          <div class="rank-bar-wrap" id="ship-rank-wrap"></div>
+        </div>
+        <div class="card">
+          <div class="rank-label">純粋棚入</div>
+          <div class="rank-bar-wrap" id="shelf-rank-wrap"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-line">
+      <div class="sec-title">時間帯別 出荷行数</div>
+      <div class="sum-row" id="line-sum"></div>
+      <div class="card">
+        <div class="chart-wrap"><canvas id="line-chart"></canvas></div>
+      </div>
+    </section>
+
+    <section id="sec-cal">
+      <div class="sec-title">日別 出荷カレンダー</div>
+      <div class="card">
+        <div class="cal-hdr">
+          <div class="cal-hdr-d sun">日</div>
+          <div class="cal-hdr-d">月</div>
+          <div class="cal-hdr-d">火</div>
+          <div class="cal-hdr-d">水</div>
+          <div class="cal-hdr-d">木</div>
+          <div class="cal-hdr-d">金</div>
+          <div class="cal-hdr-d sat">土</div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="sum-row" id="cal-sum" style="margin-top:14px"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// SUPABASE CONFIG
+// ここにSupabaseプロジェクトのURLとanonキーを入力してください
+// ============================================================
+const SUPABASE_URL      = 'https://ughmaqqvosjzvxbobmoh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaG1hcXF2b3NqenZ4Ym9ibW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMjMxMjIsImV4cCI6MjA5NTc5OTEyMn0.4ZpUIHBi6Bt82m1G-Cqr_wqX8TrRzTime6MlkBOxBf0';
+const BUCKET = 'shipment-data';
+const FOLDER = 'data';
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const COLORS = [
+  { main:'#7C6FFF', fill:'rgba(124,111,255,0.15)' },
+  { main:'#00D4FF', fill:'rgba(0,212,255,0.15)'   },
+  { main:'#FF6B9D', fill:'rgba(255,107,157,0.15)' },
+  { main:'#FFB347', fill:'rgba(255,179,71,0.15)'  },
+  { main:'#4ECDC4', fill:'rgba(78,205,196,0.15)'  },
+  { main:'#FF6B6B', fill:'rgba(255,107,107,0.15)' },
+  { main:'#A29BFE', fill:'rgba(162,155,254,0.15)' },
+  { main:'#74B9FF', fill:'rgba(116,185,255,0.15)' },
+  { main:'#FD79A8', fill:'rgba(253,121,168,0.15)' },
+  { main:'#FDCB6E', fill:'rgba(253,203,110,0.15)' },
+  { main:'#55EFC4', fill:'rgba(85,239,196,0.15)'  },
+  { main:'#E17055', fill:'rgba(225,112,85,0.15)'  },
+];
+
+const REQ_COLS = ['処理日時','処理種別','担当者','納品書No.','梱包受払数 合計'];
+
+const CAL_GRAD = [
+  [238,237,254],[197,193,248],[157,151,240],[112,102,232],[75,68,212],[60,52,137]
+];
+
+let lineChart = null;
+const radarCharts = [];
+const barCharts = [];
+let dashboardShown = false;
+
+// ============================================================
+// UTILS
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function groupBy(arr, fn) {
+  return arr.reduce((acc, x) => { const k = fn(x); (acc[k] = acc[k]||[]).push(x); return acc; }, {});
+}
+
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+
+function calColor(t) {
+  const s = Math.min(t, 0.9999) * (CAL_GRAD.length-1);
+  const i = Math.floor(s), f = s-i;
+  const [r1,g1,b1] = CAL_GRAD[i], [r2,g2,b2] = CAL_GRAD[i+1];
+  return `rgb(${Math.round(r1+(r2-r1)*f)},${Math.round(g1+(g2-g1)*f)},${Math.round(b1+(b2-b1)*f)})`;
+}
+
+function animCount(el, target, dur=1200) {
+  if (!el) return;
+  if (target === 0) { el.textContent = '0'; return; }
+  const t0 = performance.now();
+  const step = now => {
+    const p = Math.min((now-t0)/dur, 1);
+    const e = 1 - Math.pow(1-p, 4);
+    el.textContent = Math.round(e*target).toLocaleString();
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function showErr(msg) {
+  const el = $('up-error');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+// ============================================================
+// SUPABASE DATA FETCHING
+// ============================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function fetchAvailableDates() {
+  const { data, error } = await sb.storage.from(BUCKET).list(FOLDER, {
+    limit: 400,
+    sortBy: { column: 'name', order: 'desc' },
+  });
+  if (error) throw new Error(`日付一覧の取得に失敗しました: ${error.message}`);
+  return data
+    .filter(f => f.name.endsWith('.csv'))
+    .map(f => f.name.replace('.csv', ''))
+    .sort()
+    .reverse();
+}
+
+async function fetchCsvForDate(date) {
+  const { data: urlData } = sb.storage
+    .from(BUCKET)
+    .getPublicUrl(`${FOLDER}/${date}.csv`);
+
+  const res = await fetch(urlData.publicUrl);
+  if (!res.ok) throw new Error(`データの取得に失敗しました (${res.status})`);
+  return await res.text();
+}
+
+// ============================================================
+// APP INIT
+// ============================================================
+async function initApp() {
+  try {
+    const dates = await fetchAvailableDates();
+    if (!dates.length) throw new Error('データがまだありません。スクレイパーの初回実行をお待ちください。');
+
+    const sel = $('date-selector');
+    dates.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d.replace(/-/g, '/');
+      sel.appendChild(opt);
+    });
+
+    await loadDate(dates[0]);
+  } catch(err) {
+    $('spinner').style.display = 'none';
+    showErr(err.message || 'データの読み込みに失敗しました');
+  }
+}
+
+async function loadDate(date) {
+  $('spinner').style.display = 'block';
+  try {
+    const csvText = await fetchCsvForDate(date);
+
+    let text = csvText;
+    if ((text.match(/�/g)||[]).length > 3) {
+      const res2 = await fetch(sb.storage.from(BUCKET).getPublicUrl(`${FOLDER}/${date}.csv`).data.publicUrl);
+      const buf  = await res2.arrayBuffer();
+      text = new TextDecoder('Shift_JIS').decode(buf);
+    }
+
+    const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+    if (!data.length) throw new Error('CSVにデータがありません');
+
+    const missing = REQ_COLS.filter(c => !(c in data[0]));
+    if (missing.length) throw new Error(`必須カラムが見つかりません: ${missing.join(' / ')}`);
+
+    renderDashboard(data);
+  } catch(err) {
+    $('spinner').style.display = 'none';
+    showErr(err.message);
+  }
+}
+
+$('date-selector').addEventListener('change', e => loadDate(e.target.value));
+
+// ============================================================
+// DATA PROCESSING
+// ============================================================
+function parseRow(raw) {
+  const str = (raw['処理日時']||'').trim();
+  const m = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  return {
+    date:    `${m[1]}-${m[2]}-${m[3]}`,
+    hour:    +m[4],
+    type:    (raw['処理種別']||'').trim(),
+    person:  (raw['担当者']  ||'').trim(),
+    invoice: (raw['納品書No.']||'').trim(),
+  };
+}
+
+function processData(rawData) {
+  const rows = rawData.map(parseRow).filter(Boolean);
+  if (!rows.length) throw new Error('有効なデータがありません（処理日時の形式を確認してください）');
+
+  const shipments    = rows.filter(r => r.type === '出荷');
+  const pureShelving = rows.filter(r => r.type === '棚入' && r.invoice === '');
+
+  const shipSet  = new Set(shipments.map(r=>r.person));
+  const shelfSet = new Set(pureShelving.map(r=>r.person));
+  const persons  = [...new Set([...shipSet, ...shelfSet])].filter(Boolean).sort();
+
+  const metrics = persons.map(p => {
+    const myShip  = shipments.filter(r=>r.person===p);
+    const myShelf = pureShelving.filter(r=>r.person===p);
+    const myAll   = rows.filter(r=>r.person===p);
+
+    const byDH   = groupBy(myShip, r=>`${r.date}_${r.hour}`);
+    const peakSpeed = myShip.length ? Math.max(...Object.values(byDH).map(a=>a.length)) : 0;
+
+    const byD    = groupBy(myShip, r=>r.date);
+    const nDays  = Object.keys(byD).length;
+    const dailyAvg = nDays ? Object.values(byD).reduce((s,a)=>s+a.length,0)/nDays : 0;
+
+    const shelvingCount = myShelf.length;
+
+    const allByD = groupBy(myAll, r=>r.date);
+    const spans  = Object.values(allByD).map(arr => {
+      const hs = arr.map(r=>r.hour);
+      return Math.max(...hs) - Math.min(...hs) + 1;
+    });
+    const workSpan = spans.length ? spans.reduce((a,b)=>a+b,0)/spans.length : 0;
+
+    return { person:p, peakSpeed, dailyAvg, shelvingCount, workSpan, shipCount: myShip.length };
+  });
+
+  const norm = (v, max) => max > 0 ? Math.round(v/max*100) : 0;
+  const maxPeak  = Math.max(1, ...metrics.map(m=>m.peakSpeed));
+  const maxDaily = Math.max(1, ...metrics.map(m=>m.dailyAvg));
+  const maxShelf = Math.max(1, ...metrics.map(m=>m.shelvingCount));
+  const maxSpan  = Math.max(1, ...metrics.map(m=>m.workSpan));
+
+  const radarData = metrics.map(m => ({
+    ...m,
+    norm: [
+      norm(m.peakSpeed,     maxPeak),
+      norm(m.dailyAvg,      maxDaily),
+      norm(m.shelvingCount, maxShelf),
+      norm(m.workSpan,      maxSpan),
+    ]
+  }));
+
+  const byHour = groupBy(shipments, r=>r.hour);
+  const lineData = Object.keys(byHour).map(Number).sort((a,b)=>a-b)
+    .map(h => ({ hour:h, count:byHour[h].length }));
+
+  const calData = {};
+  Object.entries(groupBy(shipments, r=>r.date)).forEach(([d,a]) => { calData[d] = a.length; });
+
+  const shipRanking = [...metrics].sort((a,b)=>b.shipCount-a.shipCount)
+    .map(m=>({ person:m.person, count:m.shipCount }));
+  const shelfRanking = [...metrics].filter(m=>m.shelvingCount>0)
+    .sort((a,b)=>b.shelvingCount-a.shelvingCount)
+    .map(m=>({ person:m.person, count:m.shelvingCount }));
+
+  const dates   = rows.map(r=>r.date).sort();
+  return { radarData, lineData, calData, shipRanking, shelfRanking, minDate:dates[0], maxDate:dates[dates.length-1], totalShip:shipments.length };
+}
+
+// ============================================================
+// RENDER ORCHESTRATION
+// ============================================================
+function renderDashboard(rawData) {
+  let result;
+  try { result = processData(rawData); }
+  catch(e) { showErr(e.message); $('spinner').style.display = 'none'; return; }
+
+  const { radarData, lineData, calData, shipRanking, shelfRanking, minDate, maxDate, totalShip } = result;
+  $('hdr-period').textContent = `${minDate.replace(/-/g,'/')} 〜 ${maxDate.replace(/-/g,'/')}`;
+
+  radarCharts.forEach(c => c.destroy()); radarCharts.length = 0;
+  barCharts.forEach(c => c.destroy());   barCharts.length = 0;
+  if (lineChart) { lineChart.destroy(); lineChart = null; }
+
+  function doRender() {
+    renderRadar(radarData);
+    renderRanking(shipRanking, shelfRanking, radarData);
+    renderLine(lineData, totalShip);
+    renderCal(calData, minDate, maxDate);
+    gsap.from('.sec-title', { opacity:0, x:-24, stagger:0.15, duration:0.65, ease:'power3.out', delay:0.1 });
+    $('spinner').style.display = 'none';
+  }
+
+  if (!dashboardShown) {
+    gsap.to('#loading-screen', {
+      opacity:0, duration:0.4, ease:'power2.in',
+      onComplete() {
+        $('loading-screen').classList.add('hidden');
+        const dash = $('dashboard');
+        dash.style.opacity = 0;
+        dash.classList.add('show');
+        gsap.to(dash, { opacity:1, duration:0.5, ease:'power2.out' });
+        doRender();
+        dashboardShown = true;
+      }
+    });
+  } else {
+    doRender();
+  }
+}
+
+// ============================================================
+// RADAR CHARTS
+// ============================================================
+function renderRadar(radarData) {
+  const grid = $('radar-grid');
+  grid.innerHTML = '';
+
+  radarData.forEach((m, i) => {
+    const col = COLORS[i % COLORS.length];
+
+    const card = document.createElement('div');
+    card.className = 'radar-card';
+    card.style.setProperty('--rc', col.fill);
+    card.style.borderColor = `${col.main}28`;
+
+    const noShelf = m.shelvingCount === 0;
+    const shelfHTML = noShelf
+      ? '<span style="font-size:12px;font-weight:500;color:var(--muted)">棚入なし</span>'
+      : `${m.shelvingCount}<span class="rs-unit">件</span>`;
+
+    card.innerHTML = `
+      <div class="radar-name" style="color:${col.main}">${m.person}</div>
+      <div class="radar-canvas-wrap"><canvas id="rc${i}"></canvas></div>
+      <div class="radar-stats">
+        <div class="rs">
+          <div class="rs-label">ピーク速度</div>
+          <div class="rs-val" style="color:${col.main}">${m.peakSpeed}<span class="rs-unit">件/h</span></div>
+        </div>
+        <div class="rs">
+          <div class="rs-label">1日平均出荷</div>
+          <div class="rs-val" style="color:${col.main}">${Math.round(m.dailyAvg)}<span class="rs-unit">行</span></div>
+        </div>
+        <div class="rs">
+          <div class="rs-label">純粋棚入</div>
+          <div class="rs-val" style="color:${noShelf?'var(--muted)':col.main}">${shelfHTML}</div>
+        </div>
+        <div class="rs">
+          <div class="rs-label">稼働時間幅</div>
+          <div class="rs-val" style="color:${col.main}">${m.workSpan.toFixed(1)}<span class="rs-unit">h</span></div>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+
+    const ctx = document.getElementById(`rc${i}`).getContext('2d');
+    radarCharts.push(new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['ピーク速度','1日の総量','純粋棚入','稼働時間幅'],
+        datasets: [{
+          data: m.norm,
+          backgroundColor: col.fill,
+          borderColor: col.main,
+          borderWidth: 2,
+          pointBackgroundColor: col.main,
+          pointBorderColor: '#0A0B1A',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration:1400, easing:'easeInOutQuart', delay: i*120 },
+        scales: {
+          r: {
+            min:0, max:100,
+            ticks: { display:false, stepSize:25 },
+            grid:        { color:'rgba(255,255,255,0.06)' },
+            angleLines:  { color:'rgba(255,255,255,0.06)' },
+            pointLabels: { color:'#6B6B8A', font:{ size:10, family:'Noto Sans JP' } },
+          }
+        },
+        plugins: {
+          legend: { display:false },
+          tooltip: {
+            backgroundColor:'rgba(10,11,26,0.95)',
+            borderColor:col.main, borderWidth:1,
+            titleColor:col.main, bodyColor:'#E8E8F0', padding:12,
+            callbacks: { label: c => ` ${c.raw} pt` }
+          }
+        }
+      }
+    }));
+  });
+
+  requestAnimationFrame(() => { radarCharts.forEach(c => c.resize()); });
+
+  gsap.from('.radar-card', {
+    opacity:0, y:50, scale:0.92,
+    stagger:0.07, duration:0.75, ease:'power3.out', delay:0.2
+  });
+}
+
+// ============================================================
+// RANKING BAR CHARTS
+// ============================================================
+function renderRanking(shipRanking, shelfRanking, radarData) {
+  barCharts.forEach(c => c.destroy());
+  barCharts.length = 0;
+
+  const colorMap = new Map(radarData.map((m, i) => [m.person, COLORS[i % COLORS.length]]));
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function makeBar(wrapId, rankData, fallback) {
+    const wrap = $(wrapId);
+    if (!rankData.length) {
+      wrap.style.height = '70px';
+      wrap.innerHTML = '<div style="height:70px;display:flex;align-items:center;justify-content:center;color:#3A3A55;font-size:13px;">データなし</div>';
+      return;
+    }
+    wrap.style.height = Math.max(160, rankData.length * 48) + 'px';
+    wrap.innerHTML = '<canvas></canvas>';
+
+    const labels = rankData.map(d => d.person);
+    const counts = rankData.map(d => d.count);
+    const mains  = rankData.map(d => (colorMap.get(d.person) || { main: fallback }).main);
+    const fills  = mains.map(c => hexToRgba(c, 0.5));
+
+    barCharts.push(new Chart(wrap.querySelector('canvas').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: counts,
+          backgroundColor: fills,
+          borderColor: mains,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration:1300, easing:'easeInOutQuart' },
+        scales: {
+          x: {
+            grid: { color:'rgba(255,255,255,0.04)' },
+            ticks: { color:'#6B6B8A', font:{ size:11, family:'Noto Sans JP' } },
+            beginAtZero: true
+          },
+          y: {
+            grid: { display:false },
+            ticks: { color:'#E8E8F0', font:{ size:12, family:'Noto Sans JP', weight:'700' } }
+          }
+        },
+        plugins: {
+          legend: { display:false },
+          tooltip: {
+            backgroundColor:'rgba(10,11,26,0.95)',
+            borderColor:'#7C6FFF', borderWidth:1,
+            titleColor:'#7C6FFF', bodyColor:'#E8E8F0', padding:12,
+            callbacks: { label: c => ` ${c.raw.toLocaleString()} 件` }
+          }
+        }
+      }
+    }));
+  }
+
+  makeBar('ship-rank-wrap',  shipRanking,  '#7C6FFF');
+  makeBar('shelf-rank-wrap', shelfRanking, '#00D4FF');
+
+  gsap.from('#sec-rank .card', { opacity:0, y:40, stagger:0.12, duration:0.7, ease:'power3.out', delay:0.15 });
+}
+
+// ============================================================
+// LINE CHART
+// ============================================================
+function renderLine(lineData, totalShip) {
+  if (lineChart) { lineChart.destroy(); lineChart = null; }
+  if (!lineData.length) return;
+
+  const maxC     = Math.max(...lineData.map(d=>d.count));
+  const peakHrs  = new Set(lineData.filter(d=>d.count===maxC).map(d=>d.hour));
+  const minC     = Math.min(...lineData.map(d=>d.count));
+  const minH     = lineData.find(d=>d.count===minC)?.hour;
+  const peakList = [...peakHrs].sort((a,b)=>a-b).map(h=>`${h}時`).join(' / ');
+
+  const sumRow = $('line-sum');
+  sumRow.innerHTML = `
+    <div class="sum-card">
+      <div class="sum-label">期間合計</div>
+      <div class="sum-val" id="lv-total">0</div>
+      <div class="sum-sub">出荷行数</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">ピーク時間帯</div>
+      <div class="sum-val">${peakList}</div>
+      <div class="sum-sub">${maxC.toLocaleString()}件 / 時間</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">最少時間帯</div>
+      <div class="sum-val">${minH}時</div>
+      <div class="sum-sub">${minC.toLocaleString()}件 / 時間</div>
+    </div>`;
+  animCount($('lv-total'), totalShip);
+
+  const labels   = lineData.map(d=>`${d.hour}時`);
+  const counts   = lineData.map(d=>d.count);
+  const ptColors = lineData.map(d => peakHrs.has(d.hour) ? '#FFB347' : '#7C6FFF');
+  const ptRad    = lineData.map(d => peakHrs.has(d.hour) ? 9 : 4);
+  const ptHRad   = lineData.map(d => peakHrs.has(d.hour) ? 13 : 7);
+
+  const ctx  = $('line-chart').getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,320);
+  grad.addColorStop(0,   'rgba(124,111,255,0.5)');
+  grad.addColorStop(0.55,'rgba(124,111,255,0.12)');
+  grad.addColorStop(1,   'rgba(124,111,255,0)');
+
+  lineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: counts,
+        borderColor: '#7C6FFF',
+        backgroundColor: grad,
+        fill: true, tension: 0.35,
+        pointBackgroundColor: ptColors,
+        pointBorderColor:     '#0A0B1A',
+        pointBorderWidth: 2,
+        pointRadius:      ptRad,
+        pointHoverRadius: ptHRad,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      animation: { duration:1600, easing:'easeInOutQuart' },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#6B6B8A', font:{size:12,family:'Noto Sans JP'} } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#6B6B8A', font:{size:12,family:'Noto Sans JP'} }, beginAtZero:true }
+      },
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          backgroundColor:'rgba(10,11,26,0.95)',
+          borderColor:'#7C6FFF', borderWidth:1,
+          titleColor:'#7C6FFF', bodyColor:'#E8E8F0', padding:12,
+          callbacks: {
+            label: c => ` ${c.raw.toLocaleString()} 件`,
+            title: c => peakHrs.has(parseInt(c[0].label)) ? `🔥 ${c[0].label}（ピーク）` : c[0].label
+          }
+        }
+      }
+    }
+  });
+
+  gsap.from('#line-sum .sum-card', { opacity:0, y:24, stagger:0.1, duration:0.6, ease:'power3.out', delay:0.15 });
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function renderCal(calData, minDate, maxDate) {
+  const grid = $('cal-grid');
+  grid.innerHTML = '';
+
+  const start = new Date(`${minDate}T00:00:00`);
+  const end   = new Date(`${maxDate}T00:00:00`);
+
+  const first = new Date(start); first.setDate(first.getDate() - first.getDay());
+  const last  = new Date(end);   last.setDate(last.getDate() + (6 - last.getDay()));
+
+  const maxCount = Math.max(1, ...Object.values(calData));
+  const cur = new Date(first);
+
+  while (cur <= last) {
+    const key     = localDateStr(cur);
+    const inRange = cur >= start && cur <= end;
+    const count   = calData[key];
+    const cell    = document.createElement('div');
+
+    if (!inRange) {
+      cell.className = 'cal-cell empty';
+    } else if (count !== undefined) {
+      cell.className = 'cal-cell has-data';
+      const t       = count / maxCount;
+      const bg      = calColor(t);
+      const textCol = t > 0.42 ? 'rgba(255,255,255,0.95)' : 'rgba(10,11,26,0.85)';
+      const barCol  = t > 0.42 ? 'rgba(255,255,255,0.35)' : 'rgba(10,11,26,0.25)';
+      cell.style.background = bg;
+      cell.innerHTML = `
+        <div class="cal-d" style="color:${textCol}">${cur.getDate()}</div>
+        <div class="cal-n" style="color:${textCol}">${count.toLocaleString()}</div>
+        <div class="cal-bar" style="width:${Math.round(t*100)}%;background:${barCol}"></div>`;
+    } else {
+      cell.className = 'cal-cell no-data';
+      cell.innerHTML = `<div class="cal-d">${cur.getDate()}</div>`;
+    }
+
+    grid.appendChild(cell);
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  const pairs    = Object.entries(calData).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const calTotal = pairs.reduce((s,[,v])=>s+v, 0);
+  const calAvg   = pairs.length ? Math.round(calTotal/pairs.length) : 0;
+  const maxE     = pairs[0];
+  const minE     = pairs[pairs.length-1];
+
+  const calSum = $('cal-sum');
+  calSum.innerHTML = `
+    <div class="sum-card">
+      <div class="sum-label">期間合計</div>
+      <div class="sum-val" id="cv-total">0</div>
+      <div class="sum-sub">出荷行数</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">1日平均</div>
+      <div class="sum-val" id="cv-avg">0</div>
+      <div class="sum-sub">出荷行数</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">最多日</div>
+      <div class="sum-val">${maxE ? maxE[0].replace(/-/g,'/') : '—'}</div>
+      <div class="sum-sub">${maxE ? maxE[1].toLocaleString()+'件' : ''}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">最少日</div>
+      <div class="sum-val">${minE ? minE[0].replace(/-/g,'/') : '—'}</div>
+      <div class="sum-sub">${minE ? minE[1].toLocaleString()+'件' : ''}</div>
+    </div>`;
+
+  animCount($('cv-total'), calTotal);
+  animCount($('cv-avg'),   calAvg);
+
+  gsap.from('.cal-cell.has-data', { opacity:0, scale:0.65, stagger:0.015, duration:0.4, ease:'back.out(1.7)', delay:0.2 });
+  gsap.from('#cal-sum .sum-card', { opacity:0, y:20, stagger:0.08, duration:0.6, ease:'power3.out', delay:0.35 });
+}
+
+// ============================================================
+// START
+// ============================================================
+gsap.set('.up-wrap', { opacity:0, y:30 });
+gsap.to('.up-wrap', { opacity:1, y:0, duration:0.9, ease:'power3.out', delay:0.1 });
+initApp();
+</script>
+</body>
+</html>

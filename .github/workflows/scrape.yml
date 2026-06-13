@@ -1,0 +1,39 @@
+name: Scrape Shipment Data
+
+on:
+  schedule:
+    # 毎週月〜金 20:00 JST (= 11:00 UTC)
+    - cron: '0 11 * * 1-5'
+  # 手動実行（テスト用）
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: scraper
+        run: npm install
+
+      - name: Install Playwright browsers
+        working-directory: scraper
+        run: npx playwright install chromium --with-deps
+
+      - name: Run scraper
+        working-directory: scraper
+        run: node index.js
+        env:
+          SITE_URL:      ${{ secrets.SITE_URL }}
+          SITE_ID:       ${{ secrets.SITE_ID }}
+          SITE_PASS:     ${{ secrets.SITE_PASS }}
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}

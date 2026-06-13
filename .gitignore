@@ -1,0 +1,5 @@
+# MCP設定（トークンを含むためGitに含めない）
+.mcp.json
+
+# 依存関係
+node_modules/
