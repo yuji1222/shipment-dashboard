@@ -44,35 +44,38 @@ async function scrape() {
   const page    = await context.newPage();
 
   try {
-    // -------------------------------------------------------
-    // TODO: 以下のセレクターを実際のサイトに合わせて変更してください
-    // -------------------------------------------------------
-
     // 1. ログインページへ移動
     await page.goto(SITE_URL, { waitUntil: 'networkidle' });
 
-    // 2. IDとパスワードを入力
-    await page.fill('#login-id',       SITE_ID);    // TODO: IDフィールドのセレクター
-    await page.fill('#login-password', SITE_PASS);  // TODO: パスワードフィールドのセレクター
-
-    // 3. ログインボタンをクリックしてページ遷移を待つ
+    // 2. IDとパスワードを入力してログイン
+    await page.fill('#login_id', SITE_ID);
+    await page.fill('#password', SITE_PASS);
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle' }),
-      page.click('#login-submit'),                  // TODO: ログインボタンのセレクター
+      page.click('input.btn-primary.btn-block'),
     ]);
 
-    // 4. CSVダウンロードボタンをクリック
+    // 3. 入出荷履歴照会ページへ移動
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle' }),
+      page.click('a[href="/ja/001/management/io_stocks"]'),
+    ]);
+
+    // 4. 検索ボタンをクリック（結果をAJAXで読み込む）
+    await page.click('button.filterBtn');
+    await page.waitForLoadState('networkidle');
+
+    // 5. ダウンロードボタンをクリック
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.click('#csv-download-btn'),              // TODO: ダウンロードボタンのセレクター
+      page.locator('a:has(i.fa-download), button:has(i.fa-download)').click(),
     ]);
 
-    // 5. ダウンロード完了を待ってバッファとして読み込む
+    // 6. ダウンロード完了を待ってバッファとして読み込む
     const tmpPath = await download.path();
     if (!tmpPath) throw new Error('ダウンロードに失敗しました');
     return readFileSync(tmpPath);
 
-    // -------------------------------------------------------
   } finally {
     await browser.close();
   }
