@@ -14,16 +14,16 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0A0B1A;
-      --bg2:       #10112A;
-      --card:      rgba(255,255,255,0.04);
-      --border:    rgba(255,255,255,0.07);
-      --border-hi: rgba(124,111,255,0.35);
-      --accent:    #7C6FFF;
-      --accent2:   #00D4FF;
-      --text:      #E8E8F0;
-      --dim:       #6B6B8A;
-      --muted:     #3A3A55;
+      --bg:        #F4F5F7;
+      --bg2:       #FFFFFF;
+      --card:      #FFFFFF;
+      --border:    rgba(0,0,0,0.07);
+      --border-hi: rgba(79,70,229,0.3);
+      --accent:    #4F46E5;
+      --accent2:   #0EA5E9;
+      --text:      #111827;
+      --dim:       #6B7280;
+      --muted:     #E5E7EB;
     }
 
     html { scroll-behavior: smooth; }
@@ -40,23 +40,9 @@
       content: '';
       position: fixed; inset: 0;
       background:
-        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(124,111,255,0.07) 0%, transparent 70%),
-        radial-gradient(ellipse 50% 40% at 80% 85%, rgba(0,212,255,0.05) 0%, transparent 70%);
-      animation: bg-breathe 10s ease-in-out infinite alternate;
+        radial-gradient(ellipse 70% 60% at 5% 5%,  rgba(79,70,229,0.05) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 50% at 95% 95%, rgba(14,165,233,0.04) 0%, transparent 65%);
       pointer-events: none; z-index: 0;
-    }
-    body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(124,111,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(124,111,255,0.025) 1px, transparent 1px);
-      background-size: 48px 48px;
-      pointer-events: none; z-index: 0;
-    }
-    @keyframes bg-breathe {
-      from { opacity: 1; }
-      to   { opacity: 0.55; }
     }
 
     /* ==================== LOADING ==================== */
@@ -84,16 +70,16 @@
 
     .up-error {
       margin-top: 14px; padding: 11px 18px;
-      background: rgba(255,107,107,0.08);
-      border: 1px solid rgba(255,107,107,0.25);
-      border-radius: 10px; color: #FF6B6B; font-size: 13px;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 10px; color: #EF4444; font-size: 13px;
       display: none;
     }
     .up-error.show { display: block; }
 
     .spinner {
       display: none; width: 36px; height: 36px;
-      border: 2.5px solid rgba(124,111,255,0.2);
+      border: 2.5px solid rgba(79,70,229,0.15);
       border-top-color: var(--accent); border-radius: 50%;
       animation: spin 0.75s linear infinite;
       margin: 16px auto 0;
@@ -106,9 +92,9 @@
 
     .hdr {
       position: sticky; top: 0; z-index: 50;
-      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-      background: rgba(10,11,26,0.78);
-      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      background: rgba(255,255,255,0.88);
+      border-bottom: 1px solid rgba(0,0,0,0.07);
       height: 62px; padding: 0 clamp(16px,4vw,48px);
       display: flex; align-items: center; justify-content: space-between;
     }
@@ -122,7 +108,7 @@
     .hdr-period {
       font-size: 12px; color: var(--dim);
       padding: 3px 12px;
-      background: rgba(255,255,255,0.04);
+      background: rgba(0,0,0,0.04);
       border: 1px solid var(--border); border-radius: 100px;
     }
 
@@ -132,7 +118,7 @@
     }
     .date-sel {
       appearance: none; -webkit-appearance: none;
-      background: transparent;
+      background: #fff;
       border: 1px solid var(--border-hi); border-radius: 100px;
       color: var(--accent);
       font-family: 'Noto Sans JP', sans-serif;
@@ -143,10 +129,10 @@
       outline: none;
     }
     .date-sel:hover {
-      background: rgba(124,111,255,0.1);
-      box-shadow: 0 0 20px rgba(124,111,255,0.2);
+      background: rgba(79,70,229,0.05);
+      box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
     }
-    .date-sel option { background: #10112A; color: var(--text); }
+    .date-sel option { background: #fff; color: var(--text); }
     .date-sel-icon {
       position: absolute; right: 13px;
       pointer-events: none;
@@ -162,6 +148,7 @@
 
     .sec-title {
       font-size: clamp(15px,2vw,19px); font-weight: 700;
+      color: var(--text);
       display: flex; align-items: center; gap: 10px;
       margin-bottom: 20px;
     }
@@ -175,12 +162,12 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px; padding: 24px;
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
       transition: border-color 0.3s, box-shadow 0.3s;
     }
     .card:hover {
-      border-color: rgba(124,111,255,0.18);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+      border-color: rgba(79,70,229,0.15);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     }
 
     /* ==================== RADAR ==================== */
@@ -194,6 +181,7 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px; padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
       display: flex; flex-direction: column; align-items: center;
       transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
       position: relative; overflow: hidden;
@@ -201,13 +189,13 @@
     .radar-card::after {
       content: '';
       position: absolute; inset: 0; border-radius: 16px;
-      background: radial-gradient(circle at 50% 30%, var(--rc, rgba(124,111,255,0.08)) 0%, transparent 65%);
+      background: radial-gradient(circle at 50% 30%, var(--rc, rgba(79,70,229,0.06)) 0%, transparent 65%);
       opacity: 0; transition: opacity 0.4s; pointer-events: none;
     }
     .radar-card:hover::after { opacity: 1; }
     .radar-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+      transform: translateY(-5px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.1);
     }
     .radar-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
     .radar-canvas-wrap { width: 100%; height: 210px; position: relative; margin: 6px 0; overflow: hidden; flex-shrink: 0; }
@@ -215,14 +203,14 @@
 
     .radar-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
     .rs {
-      background: rgba(255,255,255,0.025);
-      border: 1px solid var(--border);
+      background: #F9FAFB;
+      border: 1px solid rgba(0,0,0,0.06);
       border-radius: 10px; padding: 9px 10px; text-align: center;
     }
     .rs-label { font-size: 10px; color: var(--dim); letter-spacing: 0.3px; margin-bottom: 3px; }
     .rs-val   { font-size: 19px; font-weight: 800; line-height: 1; }
     .rs-unit  { font-size: 10px; color: var(--dim); margin-left: 1px; }
-    .rs-today { background: rgba(255,255,255,0.05); }
+    .rs-today { background: #EEF2FF; }
     .rs-today .rs-val { font-size: 23px; }
 
     /* ==================== LINE ==================== */
@@ -231,9 +219,10 @@
       flex: 1; min-width: 130px;
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 16px 18px;
-      transition: border-color 0.3s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
-    .sum-card:hover { border-color: rgba(124,111,255,0.2); }
+    .sum-card:hover { border-color: rgba(79,70,229,0.2); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
     .sum-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 7px; }
     .sum-val {
       font-size: 26px; font-weight: 900; line-height: 1;
@@ -251,7 +240,7 @@
       text-align: center; font-size: 10px; font-weight: 700;
       color: var(--dim); padding: 6px 0; letter-spacing: 1px;
     }
-    .cal-hdr-d.sun { color: #FF6B6B; }
+    .cal-hdr-d.sun { color: #EF4444; }
     .cal-hdr-d.sat { color: var(--accent2); }
 
     .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; grid-auto-rows: clamp(68px, 9vw, 96px); }
@@ -262,8 +251,8 @@
       transition: transform 0.25s, box-shadow 0.25s;
     }
     .cal-cell.empty   { background: transparent; pointer-events: none; }
-    .cal-cell.no-data { background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); }
-    .cal-cell.has-data:hover { transform: scale(1.07); z-index: 2; box-shadow: 0 10px 32px rgba(0,0,0,0.45); }
+    .cal-cell.no-data { background: rgba(0,0,0,0.025); border: 1px solid rgba(0,0,0,0.04); }
+    .cal-cell.has-data:hover { transform: scale(1.07); z-index: 2; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
     .cal-d { font-size: 10px; font-weight: 700; opacity: 0.75; }
     .cal-n { font-size: 17px; font-weight: 900; line-height: 1; }
     .cal-bar { height: 3px; border-radius: 2px; }
@@ -271,8 +260,8 @@
     /* scrollbar */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(124,111,255,0.25); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(124,111,255,0.45); }
+    ::-webkit-scrollbar-thumb { background: rgba(79,70,229,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(79,70,229,0.4); }
 
     /* ==================== RESPONSIVE ==================== */
     @media (max-width: 640px) {
@@ -290,7 +279,7 @@
 
     /* ==================== LOGO ==================== */
     .up-logo-wrap { margin-bottom: 24px; }
-    .up-logo-wrap svg { width: min(210px, 70vw); height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 0 20px rgba(230,0,18,0.45)); }
+    .up-logo-wrap svg { width: min(210px, 70vw); height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 4px 12px rgba(230,0,18,0.2)); }
     .hdr-logo-mark { flex-shrink: 0; line-height: 0; }
 
     /* ==================== RANKING ==================== */
@@ -310,10 +299,10 @@
         <polygon fill="#E60012" points="7.8,38 31.9,38 44,58.9 19.8,58.9"/>
         <polygon fill="#E60012" points="19.8,0.5 3,29.7 36.7,29.7 53.5,0.5"/>
         <polygon fill="#B6001F" points="36.7,29.7 53.5,0.5 70.4,29.7 53.5,58.9"/>
-        <polygon fill="#E8E8F0" points="82.8,10.8 82.8,20.9 97,20.9 97,48.6 110.4,48.6 110.4,20.9 124.6,20.9 124.6,10.8"/>
-        <path fill="#E8E8F0" d="M151.4,9.7c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c7.2,0,25-0.6,25-20.1C176.3,10.2,157.4,9.7,151.4,9.7z M151.4,39.4c-2.4,0-10.6-0.1-10.6-9.6s7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5S153.8,39.4,151.4,39.4z"/>
-        <path fill="#E8E8F0" d="M219.5,23.5c0-12.5-12.5-12.7-16.1-12.7c-1.3,0-22.5,0-22.5,0v37.8h13.4V35.5h1.1l11.2,13.2h16.6l-11.4-13.5C214.9,34.4,219.5,31.8,219.5,23.5z M200.3,19.6c1.9,0,6,0.4,6,4.5s-3.3,4.5-5.9,4.5c-2.6,0-5.7,0-5.9,0v-9C194.7,19.6,198.5,19.6,200.3,19.6z"/>
-        <path fill="#E8E8F0" d="M273.2,29.8c0-19.5-18.9-20-25-20c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c2.2,0,5.4-0.1,8.8-0.7l1.8,2h14.3l-6-6.5C270.7,41.7,273.2,37,273.2,29.8z M237.6,29.8c0-9.5,7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5c0,2-0.4,3.6-1,4.9l-2.5-2.8h-14.1l6.9,7.4C245.5,39.3,237.6,39,237.6,29.8z"/>
+        <polygon fill="#111827" points="82.8,10.8 82.8,20.9 97,20.9 97,48.6 110.4,48.6 110.4,20.9 124.6,20.9 124.6,10.8"/>
+        <path fill="#111827" d="M151.4,9.7c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c7.2,0,25-0.6,25-20.1C176.3,10.2,157.4,9.7,151.4,9.7z M151.4,39.4c-2.4,0-10.6-0.1-10.6-9.6s7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5S153.8,39.4,151.4,39.4z"/>
+        <path fill="#111827" d="M219.5,23.5c0-12.5-12.5-12.7-16.1-12.7c-1.3,0-22.5,0-22.5,0v37.8h13.4V35.5h1.1l11.2,13.2h16.6l-11.4-13.5C214.9,34.4,219.5,31.8,219.5,23.5z M200.3,19.6c1.9,0,6,0.4,6,4.5s-3.3,4.5-5.9,4.5c-2.6,0-5.7,0-5.9,0v-9C194.7,19.6,198.5,19.6,200.3,19.6z"/>
+        <path fill="#111827" d="M273.2,29.8c0-19.5-18.9-20-25-20c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c2.2,0,5.4-0.1,8.8-0.7l1.8,2h14.3l-6-6.5C270.7,41.7,273.2,37,273.2,29.8z M237.6,29.8c0-9.5,7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5c0,2-0.4,3.6-1,4.9l-2.5-2.8h-14.1l6.9,7.4C245.5,39.3,237.6,39,237.6,29.8z"/>
       </svg>
     </div>
     <div class="up-title">SHIPMENT<br>DASHBOARD</div>
@@ -397,7 +386,6 @@
 
 // ============================================================
 // SUPABASE CONFIG
-// ここにSupabaseプロジェクトのURLとanonキーを入力してください
 // ============================================================
 const SUPABASE_URL      = 'https://ughmaqqvosjzvxbobmoh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaG1hcXF2b3NqenZ4Ym9ibW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMjMxMjIsImV4cCI6MjA5NTc5OTEyMn0.4ZpUIHBi6Bt82m1G-Cqr_wqX8TrRzTime6MlkBOxBf0';
@@ -408,24 +396,24 @@ const FOLDER = 'data';
 // CONSTANTS
 // ============================================================
 const COLORS = [
-  { main:'#7C6FFF', fill:'rgba(124,111,255,0.15)' },
-  { main:'#00D4FF', fill:'rgba(0,212,255,0.15)'   },
-  { main:'#FF6B9D', fill:'rgba(255,107,157,0.15)' },
-  { main:'#FFB347', fill:'rgba(255,179,71,0.15)'  },
-  { main:'#4ECDC4', fill:'rgba(78,205,196,0.15)'  },
-  { main:'#FF6B6B', fill:'rgba(255,107,107,0.15)' },
-  { main:'#A29BFE', fill:'rgba(162,155,254,0.15)' },
-  { main:'#74B9FF', fill:'rgba(116,185,255,0.15)' },
-  { main:'#FD79A8', fill:'rgba(253,121,168,0.15)' },
-  { main:'#FDCB6E', fill:'rgba(253,203,110,0.15)' },
-  { main:'#55EFC4', fill:'rgba(85,239,196,0.15)'  },
-  { main:'#E17055', fill:'rgba(225,112,85,0.15)'  },
+  { main:'#4F46E5', fill:'rgba(79,70,229,0.12)'   },
+  { main:'#0EA5E9', fill:'rgba(14,165,233,0.12)'  },
+  { main:'#10B981', fill:'rgba(16,185,129,0.12)'  },
+  { main:'#F59E0B', fill:'rgba(245,158,11,0.12)'  },
+  { main:'#EF4444', fill:'rgba(239,68,68,0.12)'   },
+  { main:'#8B5CF6', fill:'rgba(139,92,246,0.12)'  },
+  { main:'#EC4899', fill:'rgba(236,72,153,0.12)'  },
+  { main:'#06B6D4', fill:'rgba(6,182,212,0.12)'   },
+  { main:'#84CC16', fill:'rgba(132,204,22,0.12)'  },
+  { main:'#F97316', fill:'rgba(249,115,22,0.12)'  },
+  { main:'#14B8A6', fill:'rgba(20,184,166,0.12)'  },
+  { main:'#A855F7', fill:'rgba(168,85,247,0.12)'  },
 ];
 
 const REQ_COLS = ['処理日時','処理種別','担当者','納品書No.','梱包受払数 合計'];
 
 const CAL_GRAD = [
-  [238,237,254],[197,193,248],[157,151,240],[112,102,232],[75,68,212],[60,52,137]
+  [237,233,254],[196,181,253],[167,139,250],[124,58,237],[91,33,182],[67,20,144]
 ];
 
 const NAME_MAP = {
@@ -519,7 +507,7 @@ async function fetchCsvForDate(date) {
 // ============================================================
 async function fetchMonthlyData(dates) {
   allAvailableDates = dates;
-  const recentDates = dates.slice(0, 30); // 直近30日分
+  const recentDates = dates.slice(0, 30);
 
   const results = await Promise.allSettled(
     recentDates.map(async date => {
@@ -590,7 +578,6 @@ async function initApp() {
       sel.appendChild(opt);
     });
 
-    // 日別データと月間データを並列取得（月間統計が揃ってからレーダーを描く）
     const [rawData] = await Promise.all([
       fetchDateData(dates[0]),
       fetchMonthlyData(dates),
@@ -810,7 +797,7 @@ function renderRadar(radarData) {
           borderColor: col.main,
           borderWidth: 2,
           pointBackgroundColor: col.main,
-          pointBorderColor: '#0A0B1A',
+          pointBorderColor: '#FFFFFF',
           pointBorderWidth: 2,
           pointRadius: 4,
           pointHoverRadius: 7,
@@ -823,17 +810,17 @@ function renderRadar(radarData) {
           r: {
             min:0, max:100,
             ticks: { display:false, stepSize:25 },
-            grid:        { color:'rgba(255,255,255,0.06)' },
-            angleLines:  { color:'rgba(255,255,255,0.06)' },
-            pointLabels: { color:'#6B6B8A', font:{ size:10, family:'Noto Sans JP' } },
+            grid:        { color:'rgba(0,0,0,0.07)' },
+            angleLines:  { color:'rgba(0,0,0,0.07)' },
+            pointLabels: { color:'#6B7280', font:{ size:10, family:'Noto Sans JP' } },
           }
         },
         plugins: {
           legend: { display:false },
           tooltip: {
-            backgroundColor:'rgba(10,11,26,0.95)',
+            backgroundColor:'rgba(255,255,255,0.97)',
             borderColor:col.main, borderWidth:1,
-            titleColor:col.main, bodyColor:'#E8E8F0', padding:12,
+            titleColor:col.main, bodyColor:'#374151', padding:12,
             callbacks: { label: c => ` ${c.raw} pt` }
           }
         }
@@ -867,7 +854,7 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
     const wrap = $(wrapId);
     if (!rankData.length) {
       wrap.style.height = '70px';
-      wrap.innerHTML = '<div style="height:70px;display:flex;align-items:center;justify-content:center;color:#3A3A55;font-size:13px;">データなし</div>';
+      wrap.innerHTML = '<div style="height:70px;display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:13px;">データなし</div>';
       return;
     }
     wrap.style.height = Math.max(160, rankData.length * 48) + 'px';
@@ -876,7 +863,7 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
     const labels = rankData.map(d => d.person);
     const counts = rankData.map(d => d.count);
     const mains  = rankData.map(d => (colorMap.get(d.person) || { main: fallback }).main);
-    const fills  = mains.map(c => hexToRgba(c, 0.5));
+    const fills  = mains.map(c => hexToRgba(c, 0.45));
 
     barCharts.push(new Chart(wrap.querySelector('canvas').getContext('2d'), {
       type: 'bar',
@@ -897,21 +884,21 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
         animation: { duration:1300, easing:'easeInOutQuart' },
         scales: {
           x: {
-            grid: { color:'rgba(255,255,255,0.04)' },
-            ticks: { color:'#6B6B8A', font:{ size:11, family:'Noto Sans JP' } },
+            grid: { color:'rgba(0,0,0,0.05)' },
+            ticks: { color:'#6B7280', font:{ size:11, family:'Noto Sans JP' } },
             beginAtZero: true
           },
           y: {
             grid: { display:false },
-            ticks: { color:'#E8E8F0', font:{ size:12, family:'Noto Sans JP', weight:'700' } }
+            ticks: { color:'#111827', font:{ size:12, family:'Noto Sans JP', weight:'700' } }
           }
         },
         plugins: {
           legend: { display:false },
           tooltip: {
-            backgroundColor:'rgba(10,11,26,0.95)',
-            borderColor:'#7C6FFF', borderWidth:1,
-            titleColor:'#7C6FFF', bodyColor:'#E8E8F0', padding:12,
+            backgroundColor:'rgba(255,255,255,0.97)',
+            borderColor:'#4F46E5', borderWidth:1,
+            titleColor:'#4F46E5', bodyColor:'#374151', padding:12,
             callbacks: { label: c => ` ${c.raw.toLocaleString()} 件` }
           }
         }
@@ -919,8 +906,8 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
     }));
   }
 
-  makeBar('ship-rank-wrap',  shipRanking,  '#7C6FFF');
-  makeBar('shelf-rank-wrap', shelfRanking, '#00D4FF');
+  makeBar('ship-rank-wrap',  shipRanking,  '#4F46E5');
+  makeBar('shelf-rank-wrap', shelfRanking, '#0EA5E9');
 
   gsap.from('#sec-rank .card', { opacity:0, y:40, stagger:0.12, duration:0.7, ease:'power3.out', delay:0.15 });
 }
@@ -965,15 +952,15 @@ function renderLine(lineData, totalShip, mavg) {
 
   const labels   = lineData.map(d=>`${d.hour}時`);
   const counts   = lineData.map(d=>d.count);
-  const ptColors = lineData.map(d => peakHrs.has(d.hour) ? '#FFB347' : '#7C6FFF');
+  const ptColors = lineData.map(d => peakHrs.has(d.hour) ? '#F59E0B' : '#4F46E5');
   const ptRad    = lineData.map(d => peakHrs.has(d.hour) ? 9 : 4);
   const ptHRad   = lineData.map(d => peakHrs.has(d.hour) ? 13 : 7);
 
   const ctx  = $('line-chart').getContext('2d');
   const grad = ctx.createLinearGradient(0,0,0,320);
-  grad.addColorStop(0,   'rgba(124,111,255,0.5)');
-  grad.addColorStop(0.55,'rgba(124,111,255,0.12)');
-  grad.addColorStop(1,   'rgba(124,111,255,0)');
+  grad.addColorStop(0,   'rgba(79,70,229,0.2)');
+  grad.addColorStop(0.55,'rgba(79,70,229,0.06)');
+  grad.addColorStop(1,   'rgba(79,70,229,0)');
 
   lineChart = new Chart(ctx, {
     type: 'line',
@@ -981,11 +968,11 @@ function renderLine(lineData, totalShip, mavg) {
       labels,
       datasets: [{
         data: counts,
-        borderColor: '#7C6FFF',
+        borderColor: '#4F46E5',
         backgroundColor: grad,
         fill: true, tension: 0.35,
         pointBackgroundColor: ptColors,
-        pointBorderColor:     '#0A0B1A',
+        pointBorderColor:     '#FFFFFF',
         pointBorderWidth: 2,
         pointRadius:      ptRad,
         pointHoverRadius: ptHRad,
@@ -996,15 +983,15 @@ function renderLine(lineData, totalShip, mavg) {
       responsive:true, maintainAspectRatio:false,
       animation: { duration:1600, easing:'easeInOutQuart' },
       scales: {
-        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#6B6B8A', font:{size:12,family:'Noto Sans JP'} } },
-        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#6B6B8A', font:{size:12,family:'Noto Sans JP'} }, beginAtZero:true }
+        x: { grid:{ color:'rgba(0,0,0,0.05)' }, ticks:{ color:'#6B7280', font:{size:12,family:'Noto Sans JP'} } },
+        y: { grid:{ color:'rgba(0,0,0,0.05)' }, ticks:{ color:'#6B7280', font:{size:12,family:'Noto Sans JP'} }, beginAtZero:true }
       },
       plugins: {
         legend: { display:false },
         tooltip: {
-          backgroundColor:'rgba(10,11,26,0.95)',
-          borderColor:'#7C6FFF', borderWidth:1,
-          titleColor:'#7C6FFF', bodyColor:'#E8E8F0', padding:12,
+          backgroundColor:'rgba(255,255,255,0.97)',
+          borderColor:'#4F46E5', borderWidth:1,
+          titleColor:'#4F46E5', bodyColor:'#374151', padding:12,
           callbacks: {
             label: c => ` ${c.raw.toLocaleString()} 件`,
             title: c => peakHrs.has(parseInt(c[0].label)) ? `🔥 ${c[0].label}（ピーク）` : c[0].label
@@ -1045,8 +1032,8 @@ function renderCal(calData, minDate, maxDate, clickableDates = []) {
       cell.className = 'cal-cell has-data';
       const t       = count / maxCount;
       const bg      = calColor(t);
-      const textCol = t > 0.42 ? 'rgba(255,255,255,0.95)' : 'rgba(10,11,26,0.85)';
-      const barCol  = t > 0.42 ? 'rgba(255,255,255,0.35)' : 'rgba(10,11,26,0.25)';
+      const textCol = t > 0.42 ? 'rgba(255,255,255,0.95)' : 'rgba(17,24,39,0.85)';
+      const barCol  = t > 0.42 ? 'rgba(255,255,255,0.35)' : 'rgba(17,24,39,0.2)';
       cell.style.background = bg;
       cell.innerHTML = `
         <div class="cal-d" style="color:${textCol}">${cur.getDate()}</div>
