@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>入出荷 DASHBOARD</title>
+  <title>PULSE | 物流可視化システム</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -105,6 +105,7 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+    .hdr-subbrand { font-size: 9px; color: var(--dim); letter-spacing: 0.4px; margin-top: 1px; }
     .hdr-period {
       font-size: 12px; color: var(--dim);
       padding: 3px 12px;
@@ -201,11 +202,15 @@
     .radar-canvas-wrap { width: 100%; height: 210px; position: relative; margin: 6px 0; overflow: hidden; flex-shrink: 0; }
     .radar-canvas-wrap canvas { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; }
 
-    .radar-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px; }
+    .radar-stats {
+      width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 8px;
+      flex: 1; align-items: stretch;
+    }
     .rs {
       background: #F9FAFB;
       border: 1px solid rgba(0,0,0,0.06);
       border-radius: 10px; padding: 9px 10px; text-align: center;
+      display: flex; flex-direction: column; justify-content: center; min-height: 64px;
     }
     .rs-label { font-size: 10px; color: var(--dim); letter-spacing: 0.3px; margin-bottom: 3px; }
     .rs-val   { font-size: 19px; font-weight: 800; line-height: 1; }
@@ -293,8 +298,14 @@
     /* ==================== RANKING ==================== */
     .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .rank-label { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
-    .rank-bar-wrap { position: relative; }
-    @media (max-width: 768px) { .rank-grid { grid-template-columns: 1fr; } }
+    .rank-bar-wrap { position: relative; width: 100%; overflow: hidden; }
+    @media (max-width: 768px) {
+      .rank-grid { grid-template-columns: 1fr; }
+      #sec-rank .card { padding: 16px; }
+    }
+    @media (max-width: 480px) {
+      #sec-rank .card { padding: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -313,8 +324,8 @@
         <path fill="#111827" d="M273.2,29.8c0-19.5-18.9-20-25-20c-7.2,0-25,0.5-25,20s18.8,20.1,25,20.1c2.2,0,5.4-0.1,8.8-0.7l1.8,2h14.3l-6-6.5C270.7,41.7,273.2,37,273.2,29.8z M237.6,29.8c0-9.5,7.6-9.5,10.6-9.5c2.9,0,10.6,0.1,10.6,9.5c0,2-0.4,3.6-1,4.9l-2.5-2.8h-14.1l6.9,7.4C245.5,39.3,237.6,39,237.6,29.8z"/>
       </svg>
     </div>
-    <div class="up-title">SHIPMENT<br>DASHBOARD</div>
-    <div class="up-sub">入出荷データ可視化システム</div>
+    <div class="up-title">PULSE</div>
+    <div class="up-sub">北関東支店 物流部 可視化システム</div>
     <div class="spinner" id="spinner" style="display:block"></div>
     <div class="up-error" id="up-error"></div>
   </div>
@@ -331,7 +342,10 @@
           <polygon fill="#B6001F" points="36.7,29.7 53.5,0.5 70.4,29.7 53.5,58.9"/>
         </svg>
       </div>
-      <div class="hdr-logo">SHIPMENT<br>DASHBOARD</div>
+      <div>
+        <div class="hdr-logo">PULSE</div>
+        <div class="hdr-subbrand">北関東支店 物流部</div>
+      </div>
       <div class="hdr-period" id="hdr-period">—</div>
     </div>
     <div class="date-sel-wrap">
@@ -744,6 +758,15 @@ function renderDashboard(rawData) {
 // ============================================================
 // RADAR CHARTS
 // ============================================================
+function equalizeRadarCardHeights() {
+  const cards = document.querySelectorAll('.radar-card');
+  if (!cards.length) return;
+  cards.forEach(c => c.style.minHeight = '');
+  // offsetHeight is unaffected by CSS transforms (GSAP scale), giving true layout height
+  const maxH = Math.max(...[...cards].map(c => c.offsetHeight));
+  cards.forEach(c => c.style.minHeight = maxH + 'px');
+}
+
 function renderRadar(radarData) {
   const grid = $('radar-grid');
   grid.innerHTML = '';
@@ -842,8 +865,9 @@ function renderRadar(radarData) {
   requestAnimationFrame(() => { radarCharts.forEach(c => c.resize()); });
 
   gsap.from('.radar-card', {
-    opacity:0, y:50, scale:0.92,
-    stagger:0.07, duration:0.75, ease:'power3.out', delay:0.2
+    opacity:0, y:40,
+    stagger:0.07, duration:0.65, ease:'power3.out', delay:0.15,
+    onComplete: equalizeRadarCardHeights
   });
 }
 
@@ -868,7 +892,7 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
       wrap.innerHTML = '<div style="height:70px;display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:13px;">データなし</div>';
       return;
     }
-    wrap.style.height = Math.max(160, rankData.length * 48) + 'px';
+    wrap.style.height = '260px';
     wrap.innerHTML = '<canvas></canvas>';
 
     const labels = rankData.map(d => d.person);
@@ -886,22 +910,21 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
           borderColor: mains,
           borderWidth: 1.5,
           borderRadius: 6,
-          borderSkipped: false,
+          borderSkipped: 'bottom',
         }]
       },
       options: {
-        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         animation: { duration:1300, easing:'easeInOutQuart' },
         scales: {
           x: {
+            grid: { display:false },
+            ticks: { color:'#111827', font:{ size:12, family:'Noto Sans JP', weight:'700' } }
+          },
+          y: {
             grid: { color:'rgba(0,0,0,0.05)' },
             ticks: { color:'#6B7280', font:{ size:11, family:'Noto Sans JP' } },
             beginAtZero: true
-          },
-          y: {
-            grid: { display:false },
-            ticks: { color:'#111827', font:{ size:12, family:'Noto Sans JP', weight:'700' } }
           }
         },
         plugins: {
@@ -1108,6 +1131,12 @@ function renderCal(calData, minDate, maxDate, clickableDates = []) {
 // ============================================================
 // START
 // ============================================================
+window.addEventListener('resize', () => {
+  radarCharts.forEach(c => c.resize());
+  barCharts.forEach(c => c.resize());
+  equalizeRadarCardHeights();
+});
+
 gsap.set('.up-wrap', { opacity:0, y:30 });
 gsap.to('.up-wrap', { opacity:1, y:0, duration:0.9, ease:'power3.out', delay:0.1 });
 initApp();
