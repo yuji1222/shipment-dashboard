@@ -222,6 +222,8 @@
     .rs-label { font-size: 10px; color: var(--dim); letter-spacing: 0.3px; margin-bottom: 3px; }
     .rs-val   { font-size: 19px; font-weight: 800; line-height: 1; }
     .rs-unit  { font-size: 10px; color: var(--dim); margin-left: 1px; }
+    .rs-today { background: rgba(255,255,255,0.05); }
+    .rs-today .rs-val { font-size: 23px; }
 
     /* ==================== LINE ==================== */
     .sum-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -774,7 +776,7 @@ function renderRadar(radarData) {
       <div class="radar-name" style="color:${col.main}">${m.person}</div>
       <div class="radar-canvas-wrap"><canvas id="rc${i}"></canvas></div>
       <div class="radar-stats">
-        <div class="rs">
+        <div class="rs rs-today" style="border-color:${col.main}4D">
           <div class="rs-label">ピーク速度（今日）</div>
           <div class="rs-val" style="color:${col.main}">${m.peakSpeed}<span class="rs-unit">件/h</span></div>
         </div>
@@ -782,11 +784,11 @@ function renderRadar(radarData) {
           <div class="rs-label">ピーク速度（月間）</div>
           <div class="rs-val" style="color:${col.main}">${peakMonthHTML}</div>
         </div>
-        <div class="rs">
+        <div class="rs rs-today" style="border-color:${col.main}4D">
           <div class="rs-label">出荷行数</div>
           <div class="rs-val" style="color:${col.main}">${m.shipCount}<span class="rs-unit">行</span></div>
         </div>
-        <div class="rs">
+        <div class="rs rs-today" style="border-color:${col.main}4D">
           <div class="rs-label">棚入数</div>
           <div class="rs-val" style="color:${noShelf?'var(--muted)':col.main}">${shelfHTML}</div>
         </div>
@@ -1057,6 +1059,7 @@ function renderCal(calData, minDate, maxDate, clickableDates = []) {
           const sel = $('date-selector');
           sel.value = key;
           loadDate(key);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         });
       }
     } else {
