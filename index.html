@@ -435,6 +435,7 @@ let monthlyMinDate  = '';
 let monthlyMaxDate  = '';
 let monthlyAvg      = 0;
 let allAvailableDates = [];
+let monthlyPersonStats = {};
 
 let lineChart = null;
 const radarCharts = [];
@@ -535,6 +536,7 @@ async function fetchMonthlyData(dates) {
   const calData = {};
   let totalShip = 0;
   let validDays = 0;
+  const personShips = {};
 
   results.forEach(r => {
     if (r.status !== 'fulfilled' || !r.value.length) return;
@@ -546,10 +548,24 @@ async function fetchMonthlyData(dates) {
       calData[d] = (calData[d] || 0) + arr.length;
       totalShip += arr.length;
     });
+    shipments.forEach(s => {
+      if (!personShips[s.person]) personShips[s.person] = [];
+      personShips[s.person].push(s);
+    });
   });
 
   monthlyCalData = calData;
   monthlyAvg = validDays > 0 ? Math.round(totalShip / validDays) : 0;
+
+  monthlyPersonStats = {};
+  Object.entries(personShips).forEach(([person, ships]) => {
+    const byDH = groupBy(ships, r => `${r.date}_${r.hour}`);
+    const peakSpeed = ships.length ? Math.max(...Object.values(byDH).map(a => a.length)) : 0;
+    const byD = groupBy(ships, r => r.date);
+    const nDays = Object.keys(byD).length;
+    const avgShip = nDays > 0 ? Math.round(ships.length / nDays) : 0;
+    monthlyPersonStats[person] = { peakSpeed, avgShip };
+  });
 
   const sorted = [...recentDates].sort();
   monthlyMinDate = sorted[0] || '';
@@ -572,16 +588,14 @@ async function initApp() {
       sel.appendChild(opt);
     });
 
-    // 選択日データと月間データを並列取得
-    await Promise.all([
-      loadDate(dates[0]),
+    // 日別データと月間データを並列取得（月間統計が揃ってからレーダーを描く）
+    const [rawData] = await Promise.all([
+      fetchDateData(dates[0]),
       fetchMonthlyData(dates),
     ]);
 
-    // 月間カレンダーを描画・月平均を更新
+    renderDashboard(rawData);
     renderCal(monthlyCalData, monthlyMinDate, monthlyMaxDate, dates);
-    const mavgEl = $('lv-mavg');
-    if (mavgEl && monthlyAvg > 0) animCount(mavgEl, monthlyAvg);
 
   } catch(err) {
     $('spinner').style.display = 'none';
@@ -589,24 +603,25 @@ async function initApp() {
   }
 }
 
+async function fetchDateData(date) {
+  const csvText = await fetchCsvForDate(date);
+  let text = csvText;
+  if ((text.match(/�/g)||[]).length > 3) {
+    const res2 = await fetch(sb.storage.from(BUCKET).getPublicUrl(`${FOLDER}/${date}.csv`).data.publicUrl);
+    const buf  = await res2.arrayBuffer();
+    text = new TextDecoder('Shift_JIS').decode(buf);
+  }
+  const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+  if (!data.length) throw new Error('CSVにデータがありません');
+  const missing = REQ_COLS.filter(c => !(c in data[0]));
+  if (missing.length) throw new Error(`必須カラムが見つかりません: ${missing.join(' / ')}`);
+  return data;
+}
+
 async function loadDate(date) {
   $('spinner').style.display = 'block';
   try {
-    const csvText = await fetchCsvForDate(date);
-
-    let text = csvText;
-    if ((text.match(/�/g)||[]).length > 3) {
-      const res2 = await fetch(sb.storage.from(BUCKET).getPublicUrl(`${FOLDER}/${date}.csv`).data.publicUrl);
-      const buf  = await res2.arrayBuffer();
-      text = new TextDecoder('Shift_JIS').decode(buf);
-    }
-
-    const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
-    if (!data.length) throw new Error('CSVにデータがありません');
-
-    const missing = REQ_COLS.filter(c => !(c in data[0]));
-    if (missing.length) throw new Error(`必須カラムが見つかりません: ${missing.join(' / ')}`);
-
+    const data = await fetchDateData(date);
     renderDashboard(data);
   } catch(err) {
     $('spinner').style.display = 'none';
@@ -646,40 +661,28 @@ function processData(rawData) {
   const metrics = persons.map(p => {
     const myShip  = shipments.filter(r=>r.person===p);
     const myShelf = pureShelving.filter(r=>r.person===p);
-    const myAll   = rows.filter(r=>r.person===p);
 
-    const byDH   = groupBy(myShip, r=>`${r.date}_${r.hour}`);
+    const byDH      = groupBy(myShip, r=>`${r.date}_${r.hour}`);
     const peakSpeed = myShip.length ? Math.max(...Object.values(byDH).map(a=>a.length)) : 0;
-
-    const byD    = groupBy(myShip, r=>r.date);
-    const nDays  = Object.keys(byD).length;
-    const dailyAvg = nDays ? Object.values(byD).reduce((s,a)=>s+a.length,0)/nDays : 0;
-
     const shelvingCount = myShelf.length;
+    const mStats    = monthlyPersonStats[p] || { peakSpeed: 0, avgShip: 0 };
 
-    const allByD = groupBy(myAll, r=>r.date);
-    const spans  = Object.values(allByD).map(arr => {
-      const hs = arr.map(r=>r.hour);
-      return Math.max(...hs) - Math.min(...hs) + 1;
-    });
-    const workSpan = spans.length ? spans.reduce((a,b)=>a+b,0)/spans.length : 0;
-
-    return { person:p, peakSpeed, dailyAvg, shelvingCount, workSpan, shipCount: myShip.length };
+    return { person:p, peakSpeed, shelvingCount, shipCount: myShip.length, monthlyPeakSpeed: mStats.peakSpeed, monthlyAvgShip: mStats.avgShip };
   });
 
   const norm = (v, max) => max > 0 ? Math.round(v/max*100) : 0;
-  const maxPeak  = Math.max(1, ...metrics.map(m=>m.peakSpeed));
-  const maxDaily = Math.max(1, ...metrics.map(m=>m.dailyAvg));
-  const maxShelf = Math.max(1, ...metrics.map(m=>m.shelvingCount));
-  const maxSpan  = Math.max(1, ...metrics.map(m=>m.workSpan));
+  const maxPeak       = Math.max(1, ...metrics.map(m=>m.peakSpeed));
+  const maxShipCount  = Math.max(1, ...metrics.map(m=>m.shipCount));
+  const maxShelf      = Math.max(1, ...metrics.map(m=>m.shelvingCount));
+  const maxMonthlyAvg = Math.max(1, ...metrics.map(m=>m.monthlyAvgShip));
 
   const radarData = metrics.map(m => ({
     ...m,
     norm: [
-      norm(m.peakSpeed,     maxPeak),
-      norm(m.dailyAvg,      maxDaily),
-      norm(m.shelvingCount, maxShelf),
-      norm(m.workSpan,      maxSpan),
+      norm(m.peakSpeed,      maxPeak),
+      norm(m.shipCount,      maxShipCount),
+      norm(m.shelvingCount,  maxShelf),
+      norm(m.monthlyAvgShip, maxMonthlyAvg),
     ]
   }));
 
@@ -760,26 +763,36 @@ function renderRadar(radarData) {
     const shelfHTML = noShelf
       ? '<span style="font-size:12px;font-weight:500;color:var(--muted)">棚入なし</span>'
       : `${m.shelvingCount}<span class="rs-unit">件</span>`;
+    const peakMonthHTML = m.monthlyPeakSpeed > 0
+      ? `${m.monthlyPeakSpeed}<span class="rs-unit">件/h</span>`
+      : '<span style="font-size:12px;color:var(--muted)">—</span>';
+    const avgMonthHTML = m.monthlyAvgShip > 0
+      ? `${m.monthlyAvgShip}<span class="rs-unit">行/日</span>`
+      : '<span style="font-size:12px;color:var(--muted)">—</span>';
 
     card.innerHTML = `
       <div class="radar-name" style="color:${col.main}">${m.person}</div>
       <div class="radar-canvas-wrap"><canvas id="rc${i}"></canvas></div>
       <div class="radar-stats">
         <div class="rs">
-          <div class="rs-label">ピーク速度</div>
+          <div class="rs-label">ピーク速度（今日）</div>
           <div class="rs-val" style="color:${col.main}">${m.peakSpeed}<span class="rs-unit">件/h</span></div>
         </div>
         <div class="rs">
-          <div class="rs-label">1日平均出荷</div>
-          <div class="rs-val" style="color:${col.main}">${Math.round(m.dailyAvg)}<span class="rs-unit">行</span></div>
+          <div class="rs-label">ピーク速度（月間）</div>
+          <div class="rs-val" style="color:${col.main}">${peakMonthHTML}</div>
+        </div>
+        <div class="rs">
+          <div class="rs-label">出荷行数</div>
+          <div class="rs-val" style="color:${col.main}">${m.shipCount}<span class="rs-unit">行</span></div>
         </div>
         <div class="rs">
           <div class="rs-label">棚入数</div>
           <div class="rs-val" style="color:${noShelf?'var(--muted)':col.main}">${shelfHTML}</div>
         </div>
-        <div class="rs">
-          <div class="rs-label">稼働時間幅</div>
-          <div class="rs-val" style="color:${col.main}">${m.workSpan.toFixed(1)}<span class="rs-unit">h</span></div>
+        <div class="rs" style="grid-column: 1 / -1">
+          <div class="rs-label">月平均出荷行数</div>
+          <div class="rs-val" style="color:${col.main}">${avgMonthHTML}</div>
         </div>
       </div>`;
     grid.appendChild(card);
@@ -788,7 +801,7 @@ function renderRadar(radarData) {
     radarCharts.push(new Chart(ctx, {
       type: 'radar',
       data: {
-        labels: ['ピーク速度','1日の総量','棚入数','稼働時間幅'],
+        labels: ['ピーク速度','出荷行数','棚入数','月平均出荷行数'],
         datasets: [{
           data: m.norm,
           backgroundColor: col.fill,
@@ -942,10 +955,11 @@ function renderLine(lineData, totalShip, mavg) {
     </div>
     <div class="sum-card">
       <div class="sum-label">1日平均出荷（直近1か月）</div>
-      <div class="sum-val" id="lv-mavg">${mavg > 0 ? mavg.toLocaleString() : '—'}</div>
+      <div class="sum-val" id="lv-mavg">—</div>
       <div class="sum-sub">出荷行数</div>
     </div>`;
   animCount($('lv-total'), totalShip);
+  if (mavg > 0) animCount($('lv-mavg'), mavg);
 
   const labels   = lineData.map(d=>`${d.hour}時`);
   const counts   = lineData.map(d=>d.count);
