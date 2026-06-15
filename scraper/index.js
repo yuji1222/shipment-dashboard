@@ -21,6 +21,11 @@ async function main() {
   console.log('スクレイピング開始...');
   const csvBuffer = await scrape();
 
+  if (csvBuffer.length < 1000) {
+    console.warn(`CSVが小さすぎます (${csvBuffer.length} bytes)。データがないためアップロードをスキップします。`);
+    return;
+  }
+
   // 今日の日付 (JST)
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
   const filePath = `${FOLDER}/${today}.csv`;

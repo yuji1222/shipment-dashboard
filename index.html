@@ -600,11 +600,22 @@ async function initApp() {
       sel.appendChild(opt);
     });
 
-    const [rawData] = await Promise.all([
-      fetchDateData(dates[0]),
-      fetchMonthlyData(dates),
-    ]);
+    const monthlyPromise = fetchMonthlyData(dates);
 
+    let rawData = null;
+    let validDate = null;
+    for (const date of dates) {
+      try {
+        rawData = await fetchDateData(date);
+        validDate = date;
+        break;
+      } catch(e) {
+        if (date === dates[dates.length - 1]) throw e;
+      }
+    }
+    sel.value = validDate;
+
+    await monthlyPromise;
     renderDashboard(rawData);
     renderCal(monthlyCalData, monthlyMinDate, monthlyMaxDate, dates);
 
