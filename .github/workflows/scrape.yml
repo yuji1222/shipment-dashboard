@@ -2,8 +2,10 @@ name: Scrape Shipment Data
 
 on:
   schedule:
-    # 毎週月〜金 20:00 JST (= 11:00 UTC)
-    - cron: '0 11 * * 1-5'
+    # 毎週月〜金 14:00 JST (= 05:00 UTC)
+    # GitHub Actions は数時間遅延するため、14:00 UTC基準で設定しても
+    # 実際は 5〜7時間後の 19:00〜21:00 JST に実行される
+    - cron: '0 5 * * 1-5'
   # 手動実行（テスト用）
   workflow_dispatch:
 
