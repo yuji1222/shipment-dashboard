@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TORQ | 物流可視化システム</title>
+  <title>TORQ 北関東支店 物流部 | 物流可視化システム</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 74 60'%3E%3Cpolygon fill='%23E60012' points='7.8,38 31.9,38 44,58.9 19.8,58.9'/%3E%3Cpolygon fill='%23E60012' points='19.8,0.5 3,29.7 36.7,29.7 53.5,0.5'/%3E%3Cpolygon fill='%23B6001F' points='36.7,29.7 53.5,0.5 70.4,29.7 53.5,58.9'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -102,9 +102,7 @@
     .hdr-left { display: flex; align-items: center; gap: 14px; }
     .hdr-logo {
       font-size: 15px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--text);
     }
     .hdr-subbrand { font-size: 9px; color: var(--dim); letter-spacing: 0.4px; margin-top: 1px; }
 
@@ -552,14 +550,6 @@
 gsap.registerPlugin(ScrollTrigger);
 
 // ============================================================
-// SUPABASE CONFIG
-// ============================================================
-const SUPABASE_URL      = 'https://ughmaqqvosjzvxbobmoh.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaG1hcXF2b3NqenZ4Ym9ibW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMjMxMjIsImV4cCI6MjA5NTc5OTEyMn0.4ZpUIHBi6Bt82m1G-Cqr_wqX8TrRzTime6MlkBOxBf0';
-const BUCKET = 'shipment-data';
-const FOLDER = 'data';
-
-// ============================================================
 // CONSTANTS
 // ============================================================
 const COLORS = [
@@ -650,29 +640,16 @@ function showErr(msg) {
 }
 
 // ============================================================
-// SUPABASE DATA FETCHING
+// DATA FETCHING (サーバー側の /api 経由。Supabaseの鍵はクライアントに渡さない)
 // ============================================================
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 async function fetchAvailableDates() {
-  const { data, error } = await sb.storage.from(BUCKET).list(FOLDER, {
-    limit: 400,
-    sortBy: { column: 'name', order: 'desc' },
-  });
-  if (error) throw new Error(`日付一覧の取得に失敗しました: ${error.message}`);
-  return data
-    .filter(f => f.name.endsWith('.csv'))
-    .map(f => f.name.replace('.csv', ''))
-    .sort()
-    .reverse();
+  const res = await fetch('/api/dates');
+  if (!res.ok) throw new Error(`日付一覧の取得に失敗しました (${res.status})`);
+  return await res.json();
 }
 
 async function fetchCsvForDate(date) {
-  const { data: urlData } = sb.storage
-    .from(BUCKET)
-    .getPublicUrl(`${FOLDER}/${date}.csv`);
-
-  const res = await fetch(urlData.publicUrl);
+  const res = await fetch(`/api/data?date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error(`データの取得に失敗しました (${res.status})`);
   return await res.text();
 }
@@ -686,13 +663,7 @@ async function fetchMonthlyData(dates) {
 
   const results = await Promise.allSettled(
     recentDates.map(async date => {
-      const csvText = await fetchCsvForDate(date);
-      let text = csvText;
-      if ((text.match(/�/g)||[]).length > 3) {
-        const { data: u } = sb.storage.from(BUCKET).getPublicUrl(`${FOLDER}/${date}.csv`);
-        const buf = await (await fetch(u.publicUrl)).arrayBuffer();
-        text = new TextDecoder('Shift_JIS').decode(buf);
-      }
+      const text = await fetchCsvForDate(date);
       const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
       return data;
     })
@@ -791,13 +762,7 @@ async function initApp() {
 }
 
 async function fetchDateData(date) {
-  const csvText = await fetchCsvForDate(date);
-  let text = csvText;
-  if ((text.match(/�/g)||[]).length > 3) {
-    const res2 = await fetch(sb.storage.from(BUCKET).getPublicUrl(`${FOLDER}/${date}.csv`).data.publicUrl);
-    const buf  = await res2.arrayBuffer();
-    text = new TextDecoder('Shift_JIS').decode(buf);
-  }
+  const text = await fetchCsvForDate(date);
   const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
   if (!data.length) throw new Error('CSVにデータがありません');
   const missing = REQ_COLS.filter(c => !(c in data[0]));
@@ -1064,12 +1029,6 @@ function renderRadar(radarData) {
   requestAnimationFrame(() => {
     radarCharts.forEach(c => c.resize());
     equalizeRadarCardHeights();
-  });
-
-  gsap.from('.radar-card', {
-    opacity:0, y:40,
-    stagger:0.07, duration:0.65, ease:'power3.out',
-    scrollTrigger:{ trigger:'#sec-radar', start:'top 85%', once:true }
   });
 }
 

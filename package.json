@@ -1,0 +1,10 @@
+{
+  "name": "torq-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "@vercel/functions": "^1.5.0"
+  }
+}
