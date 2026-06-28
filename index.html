@@ -313,7 +313,7 @@
     .cal-cell.has-data:hover { transform: scale(1.07); z-index: 2; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
     .cal-d { font-size: 10px; font-weight: 700; opacity: 0.75; }
     .cal-n { font-size: 17px; font-weight: 900; line-height: 1; }
-    .cal-n.compact { font-size: 13px; }
+    .cal-n.compact { font-size: clamp(9px, 1.5vw, 12px); line-height: 1.2; word-break: break-all; }
     .cal-bar { height: 3px; border-radius: 2px; }
 
     /* ==================== DETAIL HINT ==================== */
@@ -1292,7 +1292,7 @@ function renderCal(minDate, maxDate, clickableDates = []) {
       const bg      = calColor(t);
       const textCol = t > 0.42 ? 'rgba(255,255,255,0.95)' : 'rgba(17,24,39,0.85)';
       const barCol  = t > 0.42 ? 'rgba(255,255,255,0.35)' : 'rgba(17,24,39,0.2)';
-      const numText = isSales ? `${Math.round(count/10000).toLocaleString()}万円` : count.toLocaleString();
+      const numText = isSales ? `${count.toLocaleString()}円` : count.toLocaleString();
       cell.style.background = bg;
       cell.innerHTML = `
         <div class="cal-d" style="color:${textCol}">${cur.getDate()}</div>
