@@ -1317,13 +1317,14 @@ function renderCal(minDate, maxDate, clickableDates = []) {
     cur.setDate(cur.getDate() + 1);
   }
 
-  const pairs     = Object.entries(calData).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const monthKey  = (maxDate || '').slice(0, 7);
-  const monthSum  = pairs.filter(([d]) => d.startsWith(monthKey)).reduce((s,[,v])=>s+v, 0);
+  const pairs      = Object.entries(calData).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const monthKey   = (maxDate || '').slice(0, 7);
+  const monthPairs = pairs.filter(([d]) => d.startsWith(monthKey));
+  const monthSum   = monthPairs.reduce((s,[,v])=>s+v, 0);
   const monthLabel = monthKey ? `${Number(monthKey.slice(5,7))}月合計` : '期間合計';
-  const calAvg    = pairs.length ? Math.round(pairs.reduce((s,[,v])=>s+v,0)/pairs.length) : 0;
-  const maxE      = pairs[0];
-  const minE      = pairs[pairs.length-1];
+  const calAvg     = pairs.length ? Math.round(pairs.reduce((s,[,v])=>s+v,0)/pairs.length) : 0;
+  const maxE       = monthPairs[0];
+  const minE       = monthPairs[monthPairs.length-1];
 
   const avgCard = isSales ? '' : `
     <div class="sum-card">
