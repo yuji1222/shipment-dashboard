@@ -61,10 +61,12 @@ export default async function handler(req, res) {
     return;
   }
 
+  const uploadedAt = new Date().toISOString();
   const records = entries.map(([sale_date, amount]) => ({
     sale_date,
     amount,
     source_filename: filename || null,
+    uploaded_at: uploadedAt,
   }));
 
   const { error } = await supabase.from('daily_sales').upsert(records, { onConflict: 'sale_date' });
