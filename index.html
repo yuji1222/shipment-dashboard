@@ -284,7 +284,16 @@
 
     /* ==================== CALENDAR ==================== */
     .cal-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-    .cal-month-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .cal-month-nav { display: flex; align-items: center; gap: 10px; }
+    .cal-month-label { font-size: 14px; font-weight: 700; color: var(--text); min-width: 96px; text-align: center; }
+    .cal-nav-btn {
+      width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid var(--border); background: #fff; color: var(--text);
+      font-size: 16px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cal-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .cal-grid.loading { opacity: 0.45; pointer-events: none; }
     .cal-toggle { display: flex; background: var(--muted); border-radius: 9px; padding: 3px; gap: 2px; }
     .cal-toggle-btn {
       border: none; background: none; cursor: pointer;
@@ -519,7 +528,11 @@
       <div class="sec-title">日別 売上金額/出荷行数カレンダー</div>
       <div class="card">
         <div class="cal-toolbar">
-          <div class="cal-month-label" id="cal-month-label"></div>
+          <div class="cal-month-nav">
+            <button class="cal-nav-btn" id="cal-prev" aria-label="前月">‹</button>
+            <div class="cal-month-label" id="cal-month-label"></div>
+            <button class="cal-nav-btn" id="cal-next" aria-label="次月">›</button>
+          </div>
           <div class="cal-toggle" id="cal-toggle">
             <button class="cal-toggle-btn active" data-metric="sales">売上金額</button>
             <button class="cal-toggle-btn" data-metric="ship">出荷行数</button>
@@ -614,13 +627,24 @@ const NAME_MAP = {
 };
 
 let monthlyCalData = {};
-let monthlySalesData = {};
 let calMetric = 'sales';
 let monthlyMinDate  = '';
 let monthlyMaxDate  = '';
 let monthlyAvg      = 0;
 let allAvailableDates = [];
 let monthlyPersonStats = {};
+
+// カレンダー(#sec-cal)専用の月ナビゲーション状態。
+// monthlyCalData/monthlyMinDate/monthlyMaxDateはドロワーの直近30日カレンダーと
+// 稼働レーダーの月間統計が依存しているため変更しない。
+let calViewMonth     = '';
+let calEarliestMonth = '';
+let calLatestMonth   = '';
+let calViewShipData  = {};
+let calViewSalesData = {};
+let calNavBusy       = false;
+const calShipMonthCache  = {};
+const calSalesMonthCache = {};
 
 let lineChart = null;
 const radarCharts = [];
@@ -798,9 +822,15 @@ async function initApp() {
     sel.value = validDate;
 
     await monthlyPromise;
-    monthlySalesData = await fetchSalesRange(monthlyMinDate, monthlyMaxDate);
     renderDashboard(rawData);
-    renderCal(monthlyMinDate, monthlyMaxDate, dates);
+
+    const sortedAll = [...dates].sort();
+    calEarliestMonth = sortedAll[0].slice(0, 7);
+    calLatestMonth   = sortedAll[sortedAll.length - 1].slice(0, 7);
+    calShipMonthCache[calLatestMonth] = Object.fromEntries(
+      Object.entries(monthlyCalData).filter(([d]) => d.startsWith(calLatestMonth))
+    );
+    await showCalMonth(calLatestMonth);
 
   } catch(err) {
     $('spinner').style.display = 'none';
@@ -835,9 +865,37 @@ document.querySelectorAll('#cal-toggle .cal-toggle-btn').forEach(btn => {
     if (btn.dataset.metric === calMetric) return;
     calMetric = btn.dataset.metric;
     document.querySelectorAll('#cal-toggle .cal-toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
-    renderCal(monthlyMinDate, monthlyMaxDate, allAvailableDates);
+    const [start, end] = monthRange(calViewMonth);
+    renderCal(start, end, allAvailableDates);
   });
 });
+
+$('cal-prev').addEventListener('click', () => showCalMonth(shiftMonth(calViewMonth, -1)));
+$('cal-next').addEventListener('click', () => showCalMonth(shiftMonth(calViewMonth, 1)));
+
+(() => {
+  let touchStartX = 0, touchStartY = 0, suppressClick = false;
+  const grid = $('cal-grid');
+
+  grid.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].clientX;
+    touchStartY = e.changedTouches[0].clientY;
+  }, { passive: true });
+
+  grid.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 300);
+      showCalMonth(shiftMonth(calViewMonth, dx < 0 ? 1 : -1));
+    }
+  }, { passive: true });
+
+  grid.addEventListener('click', e => {
+    if (suppressClick) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+})();
 
 // ============================================================
 // DATA PROCESSING
@@ -1249,6 +1307,75 @@ function renderLine(lineData, totalShip, mavg, currentDate) {
 // ============================================================
 // CALENDAR
 // ============================================================
+function monthRange(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return [`${monthKey}-01`, `${monthKey}-${String(lastDay).padStart(2,'0')}`];
+}
+
+function shiftMonth(monthKey, delta) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function loadShipMonth(monthKey) {
+  if (calShipMonthCache[monthKey]) return calShipMonthCache[monthKey];
+
+  const datesInMonth = allAvailableDates.filter(d => d.startsWith(monthKey));
+  const results = await Promise.allSettled(
+    datesInMonth.map(async date => {
+      const text = await fetchCsvForDate(date);
+      const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return { date, rows: data.map(parseRow).filter(Boolean) };
+    })
+  );
+
+  const calData = {};
+  results.forEach(r => {
+    if (r.status !== 'fulfilled') return;
+    const shipments = r.value.rows.filter(row => row.type === '出荷');
+    if (shipments.length) calData[r.value.date] = shipments.length;
+  });
+
+  calShipMonthCache[monthKey] = calData;
+  return calData;
+}
+
+async function loadSalesMonth(monthKey) {
+  if (calSalesMonthCache[monthKey]) return calSalesMonthCache[monthKey];
+  const [start, end] = monthRange(monthKey);
+  const data = await fetchSalesRange(start, end);
+  calSalesMonthCache[monthKey] = data;
+  return data;
+}
+
+function updateCalNavUI() {
+  const prevBtn = $('cal-prev');
+  const nextBtn = $('cal-next');
+  if (prevBtn) prevBtn.disabled = calNavBusy || calViewMonth <= calEarliestMonth;
+  if (nextBtn) nextBtn.disabled = calNavBusy || calViewMonth >= calLatestMonth;
+}
+
+async function showCalMonth(monthKey) {
+  if (calNavBusy || monthKey < calEarliestMonth || monthKey > calLatestMonth) return;
+  calNavBusy = true;
+  calViewMonth = monthKey;
+  updateCalNavUI();
+  $('cal-grid').classList.add('loading');
+
+  const [shipData, salesData] = await Promise.all([loadShipMonth(monthKey), loadSalesMonth(monthKey)]);
+  calViewShipData  = shipData;
+  calViewSalesData = salesData;
+
+  const [start, end] = monthRange(monthKey);
+  renderCal(start, end, allAvailableDates);
+
+  $('cal-grid').classList.remove('loading');
+  calNavBusy = false;
+  updateCalNavUI();
+}
+
 function calRangeLabel(minDate, maxDate) {
   if (!minDate || !maxDate) return '';
   const [y1, m1] = minDate.split('-');
@@ -1263,7 +1390,7 @@ function renderCal(minDate, maxDate, clickableDates = []) {
   grid.innerHTML = '';
 
   const isSales     = calMetric === 'sales';
-  const calData     = isSales ? monthlySalesData : monthlyCalData;
+  const calData     = isSales ? calViewSalesData : calViewShipData;
   const metricLabel = isSales ? '売上金額' : '出荷行数';
   const fmt         = v => isSales ? v.toLocaleString()+'円' : v.toLocaleString()+'件';
 
