@@ -176,6 +176,23 @@
       background: linear-gradient(180deg, var(--accent), var(--accent2));
     }
 
+    .sales-banner {
+      display: none;
+      font-size: clamp(15px,2.2vw,20px); font-weight: 700;
+      color: var(--text);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 20px;
+    }
+    .sales-banner.show { display: block; }
+    .sales-banner .sb-amount {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -471,6 +488,7 @@
 
   <div class="content">
     <section id="sec-radar">
+      <div class="sales-banner" id="sales-banner"></div>
       <div class="sec-title">担当者別 稼働レーダー</div>
       <div class="radar-grid" id="radar-grid"></div>
     </section>
@@ -498,13 +516,13 @@
     </section>
 
     <section id="sec-cal">
-      <div class="sec-title">日別 出荷カレンダー</div>
+      <div class="sec-title">日別 売上金額/出荷行数カレンダー</div>
       <div class="card">
         <div class="cal-toolbar">
           <div class="cal-month-label" id="cal-month-label"></div>
           <div class="cal-toggle" id="cal-toggle">
-            <button class="cal-toggle-btn active" data-metric="ship">出荷行数</button>
-            <button class="cal-toggle-btn" data-metric="sales">売上金額</button>
+            <button class="cal-toggle-btn" data-metric="ship">出荷行数</button>
+            <button class="cal-toggle-btn active" data-metric="sales">売上金額</button>
           </div>
         </div>
         <div class="cal-hdr">
@@ -597,7 +615,7 @@ const NAME_MAP = {
 
 let monthlyCalData = {};
 let monthlySalesData = {};
-let calMetric = 'ship';
+let calMetric = 'sales';
 let monthlyMinDate  = '';
 let monthlyMaxDate  = '';
 let monthlyAvg      = 0;
@@ -666,6 +684,20 @@ async function fetchSalesRange(start, end) {
   const res = await fetch(`/api/sales?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
   if (!res.ok) return {};
   return await res.json();
+}
+
+async function updateSalesBanner(date) {
+  const banner = $('sales-banner');
+  const m = date.match(/\d{4}-(\d{2})-(\d{2})/);
+  const dateLabel = m ? `${parseInt(m[1])}月${parseInt(m[2])}日` : date;
+
+  const sales = await fetchSalesRange(date, date);
+  const amount = sales[date];
+
+  banner.innerHTML = amount !== undefined
+    ? `${dateLabel} 売上金<span class="sb-amount">${amount.toLocaleString()}円</span>（税抜）`
+    : `${dateLabel} 売上金額データ未登録`;
+  banner.classList.add('show');
 }
 
 // ============================================================
@@ -896,6 +928,7 @@ function renderDashboard(rawData) {
   drawerDateCache[minDate] = currentRawRows;
   const hdrM = minDate.match(/\d{4}-(\d{2})-(\d{2})/);
   $('hdr-period').textContent = hdrM ? `${parseInt(hdrM[1])}月${parseInt(hdrM[2])}日のデータ` : minDate;
+  updateSalesBanner(minDate);
 
   radarCharts.forEach(c => c.destroy()); radarCharts.length = 0;
   barCharts.forEach(c => c.destroy());   barCharts.length = 0;
@@ -1284,24 +1317,29 @@ function renderCal(minDate, maxDate, clickableDates = []) {
     cur.setDate(cur.getDate() + 1);
   }
 
-  const pairs    = Object.entries(calData).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const calTotal = pairs.reduce((s,[,v])=>s+v, 0);
-  const calAvg   = pairs.length ? Math.round(calTotal/pairs.length) : 0;
-  const maxE     = pairs[0];
-  const minE     = pairs[pairs.length-1];
+  const pairs     = Object.entries(calData).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const monthKey  = (maxDate || '').slice(0, 7);
+  const monthSum  = pairs.filter(([d]) => d.startsWith(monthKey)).reduce((s,[,v])=>s+v, 0);
+  const monthLabel = monthKey ? `${Number(monthKey.slice(5,7))}月合計` : '期間合計';
+  const calAvg    = pairs.length ? Math.round(pairs.reduce((s,[,v])=>s+v,0)/pairs.length) : 0;
+  const maxE      = pairs[0];
+  const minE      = pairs[pairs.length-1];
+
+  const avgCard = isSales ? '' : `
+    <div class="sum-card">
+      <div class="sum-label">平均${metricLabel}</div>
+      <div class="sum-val" id="cv-avg">${calAvg.toLocaleString()}</div>
+      <div class="sum-sub">${metricLabel} / 日</div>
+    </div>`;
 
   const calSum = $('cal-sum');
   calSum.innerHTML = `
     <div class="sum-card">
-      <div class="sum-label">期間合計</div>
-      <div class="sum-val" id="cv-total">${calTotal.toLocaleString()}${isSales ? '円' : ''}</div>
+      <div class="sum-label">${monthLabel}</div>
+      <div class="sum-val" id="cv-total">${monthSum.toLocaleString()}${isSales ? '円' : ''}</div>
       <div class="sum-sub">${metricLabel}</div>
     </div>
-    <div class="sum-card">
-      <div class="sum-label">平均${metricLabel}</div>
-      <div class="sum-val" id="cv-avg">${calAvg.toLocaleString()}${isSales ? '円' : ''}</div>
-      <div class="sum-sub">${metricLabel} / 日</div>
-    </div>
+    ${avgCard}
     <div class="sum-card">
       <div class="sum-label">最多日</div>
       <div class="sum-val">${maxE ? maxE[0].replace(/-/g,'/') : '—'}</div>
