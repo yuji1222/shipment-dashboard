@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>売上データ管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:     #F4F5F7;
+    --card:   #FFFFFF;
+    --border: rgba(0,0,0,0.08);
+    --accent: #4F46E5;
+    --text:   #111827;
+    --dim:    #6B7280;
+  }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+
+  .panel {
+    width: 100%; max-width: 460px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+  }
+
+  .panel-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  input[type="text"], input[type="password"], input[type="file"] {
+    width: 100%; padding: 10px 12px; margin-bottom: 16px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff; color: var(--text);
+  }
+
+  button {
+    width: 100%; padding: 11px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .err {
+    margin-top: 12px; padding: 10px 12px;
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 8px; color: #EF4444; font-size: 13px;
+    display: none;
+  }
+  .err.show { display: block; }
+
+  .ok {
+    margin-top: 12px; padding: 10px 12px;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 8px; color: #047857; font-size: 13px;
+    display: none;
+  }
+  .ok.show { display: block; }
+
+  table { width: 100%; margin-top: 16px; font-size: 13px; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  th { color: var(--dim); font-weight: 500; }
+
+  .hidden { display: none; }
+  .logout { background: none; color: var(--dim); font-weight: 400; font-size: 12px; margin-top: 16px; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="login-panel">
+  <div class="panel-title">管理者ログイン</div>
+  <label for="login-user">ID</label>
+  <input type="text" id="login-user" autocomplete="username">
+  <label for="login-pass">パスワード</label>
+  <input type="password" id="login-pass" autocomplete="current-password">
+  <button id="login-btn">ログイン</button>
+  <div class="err" id="login-err"></div>
+</div>
+
+<div class="panel hidden" id="upload-panel">
+  <div class="panel-title">売上データ アップロード(xlsx)</div>
+  <label for="file-input">売上照会xlsxファイル</label>
+  <input type="file" id="file-input" accept=".xlsx">
+  <button id="upload-btn">アップロード</button>
+  <div class="err" id="upload-err"></div>
+  <div class="ok" id="upload-ok"></div>
+  <table id="result-table" class="hidden">
+    <thead><tr><th>日付</th><th>売上金額</th></tr></thead>
+    <tbody id="result-body"></tbody>
+  </table>
+  <button class="logout" id="logout-btn">ログアウト</button>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const TOKEN_KEY = 'admin_token';
+
+function showErr(el, msg) {
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function showUploadPanel() {
+  $('login-panel').classList.add('hidden');
+  $('upload-panel').classList.remove('hidden');
+}
+
+if (sessionStorage.getItem(TOKEN_KEY)) showUploadPanel();
+
+$('login-btn').addEventListener('click', async () => {
+  showErr($('login-err'), '');
+  const user = $('login-user').value;
+  const pass = $('login-pass').value;
+  $('login-btn').disabled = true;
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, pass }),
+    });
+    const json = await res.json();
+    if (!res.ok) { showErr($('login-err'), json.error || 'ログインに失敗しました'); return; }
+    sessionStorage.setItem(TOKEN_KEY, json.token);
+    showUploadPanel();
+  } catch {
+    showErr($('login-err'), '通信エラーが発生しました');
+  } finally {
+    $('login-btn').disabled = false;
+  }
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$('upload-btn').addEventListener('click', async () => {
+  showErr($('upload-err'), '');
+  showErr($('upload-ok'), '');
+  $('result-table').classList.add('hidden');
+
+  const file = $('file-input').files[0];
+  if (!file) { showErr($('upload-err'), 'ファイルを選択してください'); return; }
+
+  $('upload-btn').disabled = true;
+  try {
+    const dataBase64 = await fileToBase64(file);
+    const res = await fetch('/api/upload-sales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: sessionStorage.getItem(TOKEN_KEY), filename: file.name, dataBase64 }),
+    });
+    const json = await res.json();
+    if (res.status === 401) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      location.reload();
+      return;
+    }
+    if (!res.ok) { showErr($('upload-err'), json.error || 'アップロードに失敗しました'); return; }
+
+    $('result-body').innerHTML = json.dates
+      .map(d => `<tr><td>${d.date}</td><td>${Math.round(d.amount).toLocaleString()}円</td></tr>`)
+      .join('');
+    $('result-table').classList.remove('hidden');
+    const okEl = $('upload-ok');
+    okEl.textContent = '保存しました。内容を確認してください。';
+    okEl.classList.add('show');
+  } catch {
+    showErr($('upload-err'), '通信エラーが発生しました');
+  } finally {
+    $('upload-btn').disabled = false;
+  }
+});
+
+$('logout-btn').addEventListener('click', () => {
+  sessionStorage.removeItem(TOKEN_KEY);
+  location.reload();
+});
+</script>
+</body>
+</html>

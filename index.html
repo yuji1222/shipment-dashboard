@@ -266,6 +266,16 @@
     .chart-wrap { width: 100%; height: 320px; position: relative; }
 
     /* ==================== CALENDAR ==================== */
+    .cal-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+    .cal-month-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .cal-toggle { display: flex; background: var(--muted); border-radius: 9px; padding: 3px; gap: 2px; }
+    .cal-toggle-btn {
+      border: none; background: none; cursor: pointer;
+      padding: 6px 14px; font-size: 12.5px; font-weight: 500; font-family: inherit;
+      color: var(--dim); border-radius: 7px;
+    }
+    .cal-toggle-btn.active { background: #fff; color: var(--accent); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
     .cal-hdr { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-bottom: 5px; }
     .cal-hdr-d {
       text-align: center; font-size: 10px; font-weight: 700;
@@ -286,6 +296,7 @@
     .cal-cell.has-data:hover { transform: scale(1.07); z-index: 2; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
     .cal-d { font-size: 10px; font-weight: 700; opacity: 0.75; }
     .cal-n { font-size: 17px; font-weight: 900; line-height: 1; }
+    .cal-n.compact { font-size: 13px; }
     .cal-bar { height: 3px; border-radius: 2px; }
 
     /* ==================== DETAIL HINT ==================== */
@@ -489,6 +500,13 @@
     <section id="sec-cal">
       <div class="sec-title">日別 出荷カレンダー</div>
       <div class="card">
+        <div class="cal-toolbar">
+          <div class="cal-month-label" id="cal-month-label"></div>
+          <div class="cal-toggle" id="cal-toggle">
+            <button class="cal-toggle-btn active" data-metric="ship">出荷行数</button>
+            <button class="cal-toggle-btn" data-metric="sales">売上金額</button>
+          </div>
+        </div>
         <div class="cal-hdr">
           <div class="cal-hdr-d sun">日</div>
           <div class="cal-hdr-d">月</div>
@@ -578,6 +596,8 @@ const NAME_MAP = {
 };
 
 let monthlyCalData = {};
+let monthlySalesData = {};
+let calMetric = 'ship';
 let monthlyMinDate  = '';
 let monthlyMaxDate  = '';
 let monthlyAvg      = 0;
@@ -615,19 +635,6 @@ function calColor(t) {
   return `rgb(${Math.round(r1+(r2-r1)*f)},${Math.round(g1+(g2-g1)*f)},${Math.round(b1+(b2-b1)*f)})`;
 }
 
-function animCount(el, target, dur=1200) {
-  if (!el) return;
-  if (target === 0) { el.textContent = '0'; return; }
-  const t0 = performance.now();
-  const step = now => {
-    const p = Math.min((now-t0)/dur, 1);
-    const e = 1 - Math.pow(1-p, 4);
-    el.textContent = Math.round(e*target).toLocaleString();
-    if (p < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
 function hexToRgba(hex, a) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
@@ -652,6 +659,13 @@ async function fetchCsvForDate(date) {
   const res = await fetch(`/api/data?date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error(`データの取得に失敗しました (${res.status})`);
   return await res.text();
+}
+
+async function fetchSalesRange(start, end) {
+  if (!start || !end) return {};
+  const res = await fetch(`/api/sales?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  if (!res.ok) return {};
+  return await res.json();
 }
 
 // ============================================================
@@ -752,8 +766,9 @@ async function initApp() {
     sel.value = validDate;
 
     await monthlyPromise;
+    monthlySalesData = await fetchSalesRange(monthlyMinDate, monthlyMaxDate);
     renderDashboard(rawData);
-    renderCal(monthlyCalData, monthlyMinDate, monthlyMaxDate, dates);
+    renderCal(monthlyMinDate, monthlyMaxDate, dates);
 
   } catch(err) {
     $('spinner').style.display = 'none';
@@ -782,6 +797,15 @@ async function loadDate(date) {
 }
 
 $('date-selector').addEventListener('change', e => loadDate(e.target.value));
+
+document.querySelectorAll('#cal-toggle .cal-toggle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.metric === calMetric) return;
+    calMetric = btn.dataset.metric;
+    document.querySelectorAll('#cal-toggle .cal-toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderCal(monthlyMinDate, monthlyMaxDate, allAvailableDates);
+  });
+});
 
 // ============================================================
 // DATA PROCESSING
@@ -881,7 +905,7 @@ function renderDashboard(rawData) {
     renderRadar(radarData);
     renderRanking(shipRanking, shelfRanking, radarData);
     renderLine(lineData, totalShip, monthlyAvg, minDate);
-    gsap.utils.toArray('.sec-title').forEach(el => {
+    gsap.utils.toArray('#sec-radar .sec-title').forEach(el => {
       gsap.from(el, { opacity:0, x:-24, duration:0.65, ease:'power3.out', scrollTrigger:{ trigger:el, start:'top 90%', once:true } });
     });
     $('spinner').style.display = 'none';
@@ -1076,7 +1100,7 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        animation: { duration:1300, easing:'easeInOutQuart' },
+        animation: false,
         scales: {
           x: {
             grid: { display:false },
@@ -1103,8 +1127,6 @@ function renderRanking(shipRanking, shelfRanking, radarData) {
 
   makeBar('ship-rank-wrap',  shipRanking,  '#4F46E5');
   makeBar('shelf-rank-wrap', shelfRanking, '#0EA5E9');
-
-  gsap.from('#sec-rank .card', { opacity:0, y:40, stagger:0.12, duration:0.7, ease:'power3.out', scrollTrigger:{ trigger:'#sec-rank', start:'top 85%', once:true } });
 }
 
 // ============================================================
@@ -1125,7 +1147,7 @@ function renderLine(lineData, totalShip, mavg, currentDate) {
   sumRow.innerHTML = `
     <div class="sum-card">
       <div class="sum-label">${dateLabel} 合計出荷行数</div>
-      <div class="sum-val" id="lv-total">0</div>
+      <div class="sum-val" id="lv-total">${totalShip.toLocaleString()}</div>
       <div class="sum-sub">出荷行数</div>
     </div>
     <div class="sum-card">
@@ -1135,11 +1157,9 @@ function renderLine(lineData, totalShip, mavg, currentDate) {
     </div>
     <div class="sum-card">
       <div class="sum-label">1日平均出荷（直近1か月）</div>
-      <div class="sum-val" id="lv-mavg">—</div>
+      <div class="sum-val" id="lv-mavg">${mavg > 0 ? mavg.toLocaleString() : '—'}</div>
       <div class="sum-sub">出荷行数</div>
     </div>`;
-  animCount($('lv-total'), totalShip);
-  if (mavg > 0) animCount($('lv-mavg'), mavg);
 
   const labels   = lineData.map(d=>`${d.hour}時`);
   const counts   = lineData.map(d=>d.count);
@@ -1172,7 +1192,7 @@ function renderLine(lineData, totalShip, mavg, currentDate) {
     },
     options: {
       responsive:true, maintainAspectRatio:false,
-      animation: { duration:1600, easing:'easeInOutQuart' },
+      animation: false,
       scales: {
         x: { grid:{ color:'rgba(0,0,0,0.05)' }, ticks:{ color:'#6B7280', font:{size:12,family:'Noto Sans JP'} } },
         y: { grid:{ color:'rgba(0,0,0,0.05)' }, ticks:{ color:'#6B7280', font:{size:12,family:'Noto Sans JP'} }, beginAtZero:true }
@@ -1191,16 +1211,30 @@ function renderLine(lineData, totalShip, mavg, currentDate) {
       }
     }
   });
-
-  gsap.from('#line-sum .sum-card', { opacity:0, y:24, stagger:0.1, duration:0.6, ease:'power3.out', scrollTrigger:{ trigger:'#sec-line', start:'top 85%', once:true } });
 }
 
 // ============================================================
 // CALENDAR
 // ============================================================
-function renderCal(calData, minDate, maxDate, clickableDates = []) {
+function calRangeLabel(minDate, maxDate) {
+  if (!minDate || !maxDate) return '';
+  const [y1, m1] = minDate.split('-');
+  const [y2, m2] = maxDate.split('-');
+  if (y1 === y2 && m1 === m2) return `${y1}年${Number(m1)}月`;
+  if (y1 === y2) return `${y1}年${Number(m1)}月 〜 ${Number(m2)}月`;
+  return `${y1}年${Number(m1)}月 〜 ${y2}年${Number(m2)}月`;
+}
+
+function renderCal(minDate, maxDate, clickableDates = []) {
   const grid = $('cal-grid');
   grid.innerHTML = '';
+
+  const isSales     = calMetric === 'sales';
+  const calData     = isSales ? monthlySalesData : monthlyCalData;
+  const metricLabel = isSales ? '売上金額' : '出荷行数';
+  const fmt         = v => isSales ? v.toLocaleString()+'円' : v.toLocaleString()+'件';
+
+  $('cal-month-label').textContent = calRangeLabel(minDate, maxDate);
 
   const start = new Date(`${minDate}T00:00:00`);
   const end   = new Date(`${maxDate}T00:00:00`);
@@ -1225,14 +1259,15 @@ function renderCal(calData, minDate, maxDate, clickableDates = []) {
       const bg      = calColor(t);
       const textCol = t > 0.42 ? 'rgba(255,255,255,0.95)' : 'rgba(17,24,39,0.85)';
       const barCol  = t > 0.42 ? 'rgba(255,255,255,0.35)' : 'rgba(17,24,39,0.2)';
+      const numText = isSales ? `${Math.round(count/10000).toLocaleString()}万円` : count.toLocaleString();
       cell.style.background = bg;
       cell.innerHTML = `
         <div class="cal-d" style="color:${textCol}">${cur.getDate()}</div>
-        <div class="cal-n" style="color:${textCol}">${count.toLocaleString()}</div>
+        <div class="cal-n${isSales ? ' compact' : ''}" style="color:${textCol}">${numText}</div>
         <div class="cal-bar" style="width:${Math.round(t*100)}%;background:${barCol}"></div>`;
+      cell.title = `${key.replace(/-/g,'/')}（${fmt(count)}）${clickableDates.includes(key) ? ' のデータを表示' : ''}`;
       if (clickableDates.includes(key)) {
         cell.style.cursor = 'pointer';
-        cell.title = `${key.replace(/-/g,'/')} のデータを表示`;
         cell.addEventListener('click', () => {
           const sel = $('date-selector');
           sel.value = key;
@@ -1259,30 +1294,24 @@ function renderCal(calData, minDate, maxDate, clickableDates = []) {
   calSum.innerHTML = `
     <div class="sum-card">
       <div class="sum-label">期間合計</div>
-      <div class="sum-val" id="cv-total">0</div>
-      <div class="sum-sub">出荷行数</div>
+      <div class="sum-val" id="cv-total">${calTotal.toLocaleString()}${isSales ? '円' : ''}</div>
+      <div class="sum-sub">${metricLabel}</div>
     </div>
     <div class="sum-card">
-      <div class="sum-label">平均出荷行数</div>
-      <div class="sum-val" id="cv-avg">0</div>
-      <div class="sum-sub">出荷行数 / 日</div>
+      <div class="sum-label">平均${metricLabel}</div>
+      <div class="sum-val" id="cv-avg">${calAvg.toLocaleString()}${isSales ? '円' : ''}</div>
+      <div class="sum-sub">${metricLabel} / 日</div>
     </div>
     <div class="sum-card">
       <div class="sum-label">最多日</div>
       <div class="sum-val">${maxE ? maxE[0].replace(/-/g,'/') : '—'}</div>
-      <div class="sum-sub">${maxE ? maxE[1].toLocaleString()+'件' : ''}</div>
+      <div class="sum-sub">${maxE ? fmt(maxE[1]) : ''}</div>
     </div>
     <div class="sum-card">
       <div class="sum-label">最少日</div>
       <div class="sum-val">${minE ? minE[0].replace(/-/g,'/') : '—'}</div>
-      <div class="sum-sub">${minE ? minE[1].toLocaleString()+'件' : ''}</div>
+      <div class="sum-sub">${minE ? fmt(minE[1]) : ''}</div>
     </div>`;
-
-  animCount($('cv-total'), calTotal);
-  animCount($('cv-avg'),   calAvg);
-
-  gsap.from('.cal-cell.has-data', { opacity:0, scale:0.65, stagger:0.015, duration:0.4, ease:'back.out(1.7)', scrollTrigger:{ trigger:'#sec-cal', start:'top 85%', once:true } });
-  gsap.from('#cal-sum .sum-card', { opacity:0, y:20, stagger:0.08, duration:0.6, ease:'power3.out', scrollTrigger:{ trigger:'#sec-cal', start:'top 85%', once:true } });
 }
 
 // ============================================================
@@ -1373,7 +1402,7 @@ function renderDrawerTimeline(person, col, rows = currentRawRows) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration:900, easing:'easeInOutQuart' },
+      animation: false,
       scales: {
         x: { stacked:true, grid:{ display:false }, ticks:{ color:'#6B7280', font:{size:11,family:'Noto Sans JP'} } },
         y: { stacked:true, grid:{ color:'rgba(0,0,0,0.05)' }, ticks:{ color:'#6B7280', font:{size:11,family:'Noto Sans JP'} }, beginAtZero:true }

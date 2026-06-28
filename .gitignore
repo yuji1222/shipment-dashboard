@@ -5,3 +5,9 @@
 node_modules/
 
 .vercel
+
+# 環境変数（シークレットを含むためGitに含めない）
+.env
+.env.*
+
+.env*
